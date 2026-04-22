@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#0f172a"/>
+<title>PharmaNear Nafea</title>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<style>
+/* ── Reset ── */
+*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent;margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+body{font-family:'Cairo','Segoe UI',Tahoma,Arial,sans-serif;background:#f1f5f9;-webkit-font-smoothing:antialiased;direction:rtl;min-height:100vh;}
+button{cursor:pointer;border:none;background:none;font-family:inherit;}
+input,textarea,select{font-family:inherit;font-size:16px;} /* 16px prevents iOS zoom */
+img{max-width:100%;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px;}
+
+/* ── Animations ── */
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(24px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+@keyframes ping{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.7);opacity:0;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes notifIn{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scan{0%{top:4px;}50%{top:calc(100% - 7px);}100%{top:4px;}}
+
+.fade-in{animation:fadeIn .25s ease forwards;}
+.ping{animation:ping 1.4s ease-in-out infinite;}
+.notif-in{animation:notifIn .35s cubic-bezier(.22,1,.36,1) forwards;}
+
+/* ── Layout ── */
+#app{min-height:100vh;display:flex;overflow-x:clip;}
+.sidebar{width:240px;background:linear-gradient(180deg,#0f172a,#1e293b);display:flex;flex-direction:column;position:fixed;top:0;right:0;bottom:0;z-index:40;box-shadow:4px 0 24px rgba(0,0,0,.3);}
+.main{flex:1;min-height:100vh;padding-right:240px;}
+.header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(0,0,0,.06);padding:0 16px;height:56px;display:flex;align-items:center;justify-content:space-between;}
+.page{padding:16px;max-width:900px;margin:0 auto;padding-bottom:90px;}
+
+/* ── Bottom Nav (mobile only) ── */
+.bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(15,23,42,.97);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.08);z-index:50;padding-bottom:max(env(safe-area-inset-bottom),6px);}
+.bnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px 6px;font-size:10px;font-weight:700;color:#64748b;min-height:56px;position:relative;transition:color .2s;}
+.bnav-btn.active{color:#14b8a6;}
+.bnav-btn svg{width:22px;height:22px;stroke:currentColor;}
+
+/* ── Mobile overrides ── */
+@media(max-width:1023px){
+  .sidebar{display:none;}
+  .sidebar.open{display:flex;}
+  .sidebar-overlay{display:block;}
+  .main{padding-right:0;}
+  .bottom-nav{display:flex;}
+  .menu-btn{display:flex!important;}
+}
+@media(min-width:1024px){
+  .menu-btn{display:none!important;}
+}
+
+/* ── Card ── */
+.card{background:#fff;border-radius:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.05);overflow:hidden;}
+.card-scroll{overflow:hidden;}
+
+/* ── Form inputs ── */
+.inp{width:100%;padding:13px 16px;border-radius:14px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#1e293b;font-size:16px;font-weight:500;outline:none;text-align:right;transition:border-color .2s,background .2s;font-family:inherit;}
+.inp:focus{border-color:#14b8a6;background:#fff;}
+.inp-err{border-color:#ef4444;}
+.lbl{display:block;color:#475569;font-size:13px;font-weight:700;margin-bottom:8px;}
+.err-msg{color:#ef4444;font-size:12px;margin-top:5px;}
+
+/* ── Buttons ── */
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;border-radius:14px;font-weight:800;font-size:15px;min-height:50px;box-shadow:0 6px 16px rgba(20,184,166,.3);transition:opacity .15s,transform .15s;font-family:inherit;cursor:pointer;}
+.btn-primary:active{opacity:.85;transform:scale(.97);}
+.btn-sec{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 20px;background:transparent;color:#64748b;border-radius:14px;font-weight:700;font-size:14px;min-height:50px;border:1.5px solid #e2e8f0;transition:background .15s;font-family:inherit;cursor:pointer;}
+.btn-sec:active{background:#f1f5f9;}
+.btn-danger{background:linear-gradient(135deg,#ef4444,#f43f5e);box-shadow:0 4px 12px rgba(239,68,68,.3);}
+
+/* ── Toast ── */
+#toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%);z-index:9000;padding:12px 20px;border-radius:16px;color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);box-shadow:0 8px 32px rgba(0,0,0,.2);pointer-events:none;opacity:0;transition:opacity .3s;}
+#toast.show{animation:slideUp .35s ease forwards;opacity:1;}
+
+/* ── Notif Banner ── */
+#notif-banner{position:fixed;top:12px;right:12px;left:12px;background:linear-gradient(135deg,#0f172a,#1e293b);border:1px solid rgba(20,184,166,.3);border-radius:18px;padding:14px 16px;z-index:8000;box-shadow:0 8px 32px rgba(0,0,0,.3);color:#fff;display:none;}
+#notif-banner.show{display:block;}
+
+/* ── Status badges ── */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:9px;font-size:11px;font-weight:700;border:1px solid;}
+.badge-red{background:#fff5f5;color:#dc2626;border-color:#fecaca;}
+.badge-orange{background:#fff7ed;color:#ea580c;border-color:#fed7aa;}
+.badge-amber{background:#fffbeb;color:#d97706;border-color:#fde68a;}
+.badge-yellow{background:#fefce8;color:#ca8a04;border-color:#fef08a;}
+.badge-green{background:#f0fdf4;color:#16a34a;border-color:#86efac;}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.dot-red{background:#ef4444;}.dot-orange{background:#f97316;}.dot-amber{background:#f59e0b;}.dot-yellow{background:#eab308;}.dot-green{background:#10b981;}
+
+/* ── Scanner ── */
+.scanner-overlay{position:fixed;inset:0;background:rgba(0,0,0,.94);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.scanner-box{width:72%;aspect-ratio:1.6;border:3px solid #14b8a6;border-radius:18px;box-shadow:0 0 0 9999px rgba(0,0,0,.55);position:relative;}
+.scanner-line{position:absolute;left:0;right:0;top:4px;height:3px;background:linear-gradient(90deg,transparent,#14b8a6,transparent);animation:scan 2s ease-in-out infinite;border-radius:99px;}
+.sc-corner{position:absolute;width:22px;height:22px;border-color:#14b8a6;border-style:solid;}
+.sc-tl{top:-3px;left:-3px;border-width:4px 0 0 4px;border-radius:8px 0 0 0;}
+.sc-tr{top:-3px;right:-3px;border-width:4px 4px 0 0;border-radius:0 8px 0 0;}
+.sc-bl{bottom:-3px;left:-3px;border-width:0 0 4px 4px;border-radius:0 0 0 8px;}
+.sc-br{bottom:-3px;right:-3px;border-width:0 4px 4px 0;border-radius:0 0 8px 0;}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:scroll;-webkit-overflow-scrolling:touch;position:relative;border-radius:0 0 20px 20px;scrollbar-width:thin;scrollbar-color:#14b8a6 #f1f5f9;}
+.tbl-wrap::-webkit-scrollbar{height:8px;display:block;}
+.tbl-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}
+.tbl-wrap::-webkit-scrollbar-thumb{background:#14b8a6;border-radius:99px;border:2px solid #f1f5f9;}
+.tbl-wrap table{min-width:680px;width:100%;border-collapse:collapse;table-layout:fixed;}
+.tbl-wrap th{text-align:right;padding:10px 12px;color:#64748b;font-size:12px;font-weight:700;background:#f8fafc;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;}
+.tbl-wrap td{padding:10px 12px;border-bottom:1px solid #f8fafc;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tbl-wrap tr:last-child td{border-bottom:none;}
+.tbl-wrap tr:hover td{background:#f8fafc;}
+/* sticky columns mobile */
+@media(max-width:768px){
+  .tbl-wrap th:first-child,.tbl-wrap td:first-child{position:sticky;right:0;z-index:4;background:#f8fafc;box-shadow:-3px 0 8px rgba(0,0,0,.08);}
+  .tbl-wrap td:first-child{background:#fff;}
+  .tbl-wrap tr:hover td:first-child{background:#f8fafc;}
+}
+
+/* ── Filters ── */
+.filter-btn{padding:8px 14px;border-radius:12px;font-size:12px;font-weight:700;min-height:40px;cursor:pointer;transition:all .15s;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;font-family:inherit;}
+.filter-btn.active{background:#0f172a;color:#fff;border-color:#0f172a;}
+
+/* ── Sidebar items ── */
+.nav-item{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:14px;font-size:13px;font-weight:600;text-align:right;color:#64748b;background:transparent;border:1.5px solid transparent;transition:all .2s;min-height:46px;cursor:pointer;font-family:inherit;}
+.nav-item.active{background:rgba(20,184,166,.15);color:#14b8a6;border-color:rgba(20,184,166,.25);}
+.nav-item svg{width:18px;height:18px;stroke:currentColor;flex-shrink:0;}
+
+/* ── Auth screen ── */
+.auth-wrap{min-height:100vh;background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);display:flex;align-items:center;justify-content:center;padding:16px;}
+.auth-box{background:rgba(255,255,255,.08);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:24px;padding:28px;border:1px solid rgba(255,255,255,.1);}
+.auth-inp{width:100%;padding:14px 44px 14px 14px;border-radius:14px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);color:#fff;font-size:16px;outline:none;text-align:right;font-family:inherit;transition:border-color .2s;}
+.auth-inp:focus{border-color:#14b8a6;}
+.auth-inp::placeholder{color:#475569;}
+
+/* ── Misc ── */
+.section-title{color:#14b8a6;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;border-bottom:1px solid #f1f5f9;padding-bottom:12px;margin-bottom:16px;}
+.empty-state{padding:48px 24px;text-align:center;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.flex-row{display:flex;gap:10px;}
+.flex-1{flex:1;}
+.mt-8{margin-top:8px;}.mt-12{margin-top:12px;}.mt-16{margin-top:16px;}
+.gap-12{gap:12px;}.gap-16{gap:16px;}
+.page-title{font-size:20px;font-weight:800;color:#0f172a;}
+.page-sub{color:#64748b;font-size:13px;margin-top:4px;}
+.info-box{border-radius:14px;padding:14px;}
+.info-teal{background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;}
+.info-amber{background:#fffbeb;border:1px solid #fde68a;color:#92400e;}
+.info-blue{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;}
+.info-red{background:#fff5f5;border:1px solid #fecaca;color:#dc2626;}
+</style>
+</head>
+<body>
+<div id="app-root"></div>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════
+// SVG ICONS
+// ══════════════════════════════════════════════════════════
+const SVG={
+  dashboard:'<rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/>',
+  package:'<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+  plus:'<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>',
+  search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  bell:'<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  pill:'<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
+  alert:'<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  save:'<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  cal:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  dollar:'<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+  truck:'<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  file:'<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  barcode:'<path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/>',
+  pencil:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  trash:'<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  check:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  zap:'<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+  menu:'<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>',
+  download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  lock:'<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  eye:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" x2="22" y1="2" y2="22"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>',
+  user:'<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/>',
+  userplus:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+  layers:'<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/>',
+  wa:'<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+  flip:'<path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 2v3a2 2 0 0 1-2 2H4"/><path d="M13 2H9a2 2 0 0 0-2 2v3"/><path d="M20 2h-4a2 2 0 0 0-2 2v3"/><path d="M4 15v2a2 2 0 0 0 2 2h3"/><path d="M15 19h3a2 2 0 0 0 2-2v-2"/><circle cx="12" cy="13" r="3"/>',
+  trending:'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+  link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+};
+function ic(name,size){size=size||20;return`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${SVG[name]||''}</svg>`;}
+function icFill(name,size){size=size||20;return`<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="currentColor">${SVG[name]||''}</svg>`;}
+
+// ══════════════════════════════════════════════════════════
+// STORAGE
+// ══════════════════════════════════════════════════════════
+const K={
+  accounts:'pn_v5_accounts',
+  session:'pn_v5_session',
+  userProducts:u=>'pn_v5_products_'+u.toLowerCase(),
+  userBackup:u=>'pn_v5_backup_'+u.toLowerCase(),
+  userPhone:u=>'pn_v5_phone_'+u.toLowerCase(),
+};
+const ls={get:k=>{try{return JSON.parse(localStorage.getItem(k)||'null');}catch{return null;}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),del:k=>localStorage.removeItem(k)};
+
+function getAccounts(){return ls.get(K.accounts)||[];}
+function saveAccounts(a){ls.set(K.accounts,a);}
+function getSession(){return ls.get(K.session);}
+function saveSession(s){ls.set(K.session,s);}
+function clearSession(){ls.del(K.session);}
+function _currentUser(){return state?.username||'';}
+function getProducts(){return ls.get(K.userProducts(_currentUser()))||[];}
+function saveProducts(p){ls.set(K.userProducts(_currentUser()),p);}
+function addProduct(p){saveProducts([...getProducts(),p]);}
+function updateProduct(u){saveProducts(getProducts().map(p=>p.id===u.id?u:p));}
+function deleteProduct(id){saveProducts(getProducts().filter(p=>p.id!==id));}
+function genId(){return Date.now()+'-'+Math.random().toString(36).slice(2,8);}
+
+function registerAccount(username,password){
+  const acc=getAccounts();
+  if(acc.find(a=>a.username.toLowerCase()===username.toLowerCase()))return{ok:false,err:'اسم المستخدم موجود بالفعل'};
+  acc.push({username,password,createdAt:new Date().toISOString()});
+  saveAccounts(acc);return{ok:true};
+}
+function loginAccount(username,password){
+  const acc=getAccounts();
+  const a=acc.find(a=>a.username.toLowerCase()===username.toLowerCase()&&a.password===password);
+  if(!a)return{ok:false,err:'اسم المستخدم أو كلمة المرور غير صحيحة'};
+  saveSession({username:a.username,loginAt:new Date().toISOString()});
+  return{ok:true,username:a.username};
+}
+
+// ══════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════
+function getDays(date){const n=new Date();n.setHours(0,0,0,0);const e=new Date(date);e.setHours(0,0,0,0);return Math.round((e-n)/86400000);}
+function fmtDate(date){return new Date(date).toLocaleDateString('ar-EG',{year:'numeric',month:'long',day:'numeric'});}
+function fmtDateS(date){return new Date(date).toLocaleDateString('ar-EG',{year:'numeric',month:'numeric',day:'numeric'});}
+function fmtCur(n){return(n||n===0)?Number(n).toLocaleString('ar-EG',{minimumFractionDigits:2,maximumFractionDigits:2})+' ج.م':'—';}
+function getTotal(p){const q=p.quantity||0,u=p.unitQty||0,per=p.unitsPerPack||0;return per?(q*per+u):q;}
+function getStatus(days){
+  if(days<0)   return{label:'منتهي',cls:'badge-red',   dot:'dot-red',   color:'#dc2626'};
+  if(days<=30) return{label:'حرج',   cls:'badge-orange',dot:'dot-orange',color:'#ea580c'};
+  if(days<=90) return{label:'تحذير', cls:'badge-amber', dot:'dot-amber', color:'#d97706'};
+  if(days<=180)return{label:'قريب',  cls:'badge-yellow',dot:'dot-yellow',color:'#ca8a04'};
+  return             {label:'جيد',   cls:'badge-green', dot:'dot-green', color:'#16a34a'};
+}
+
+// ══════════════════════════════════════════════════════════
+// BACKUP / WHATSAPP
+// ══════════════════════════════════════════════════════════
+function triggerDownload(data,filename){
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1000);
+}
+function exportBackup(auto){
+  const prods=getProducts();const now=new Date();
+  const stamp=now.toISOString().replace(/[:.]/g,'-').slice(0,19);
+  const uname=_currentUser();
+  triggerDownload({appName:'PharmaNear Nafea',version:5,exportedAt:now.toISOString(),autoBackup:!!auto,username:uname,accounts:getAccounts(),products:prods},
+    `backup-pharmanear-${uname}-${auto?'auto':'manual'}-${stamp}.json`);
+  ls.set(K.userBackup(uname),now.toISOString());
+}
+function importBackup(file,onSuccess,onError){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const parsed=JSON.parse(e.target.result);
+      if(parsed.accounts&&Array.isArray(parsed.accounts)){
+        const ex=getAccounts(),merged=[...ex];
+        parsed.accounts.forEach(a=>{if(!merged.find(m=>m.username.toLowerCase()===a.username.toLowerCase()))merged.push(a);});
+        saveAccounts(merged);
+      }
+      const prods=parsed.products||parsed;
+      if(!Array.isArray(prods))throw new Error('تنسيق غير صحيح');
+      saveProducts(prods);onSuccess(prods.length,parsed.accounts?.length||0);
+    }catch(err){onError(err.message);}
+  };
+  reader.readAsText(file);
+}
+function buildWAMsg(products){
+  const now=new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const exp=products.filter(p=>getDays(p.expiryDate)<0);
+  const crit=products.filter(p=>{const d=getDays(p.expiryDate);return d>=0&&d<=30;});
+  const warn=products.filter(p=>{const d=getDays(p.expiryDate);return d>30&&d<=90;});
+  let m=`🏥 *تقرير PharmaNear Nafea*\n📅 ${now}\n${'─'.repeat(28)}\n\n`;
+  m+=`📊 *ملخص:* إجمالي ${products.length} | 🔴 ${exp.length} | 🟠 ${crit.length} | 🟡 ${warn.length}\n\n`;
+  if(exp.length){m+=`🔴 *منتهية (${exp.length}):*\n`;exp.slice(0,12).forEach((p,i)=>{m+=`${i+1}. ${p.name} — ${fmtDateS(p.expiryDate)} | ${p.quantity||0} علبة | ${fmtCur(p.sellingPrice)}\n`;});if(exp.length>12)m+=`...و${exp.length-12} آخر\n`;m+='\n';}
+  if(crit.length){m+=`🟠 *حرجة <30 يوم (${crit.length}):*\n`;crit.slice(0,12).forEach((p,i)=>{const d=getDays(p.expiryDate);m+=`${i+1}. ${p.name} — ${d} يوم | ${p.quantity||0} علبة\n`;});if(crit.length>12)m+=`...و${crit.length-12} آخر\n`;m+='\n';}
+  if(warn.length){m+=`🟡 *تحذير 30-90 يوم (${warn.length}):*\n`;warn.slice(0,8).forEach((p,i)=>{const d=getDays(p.expiryDate);m+=`${i+1}. ${p.name} — ${d} يوم\n`;});if(warn.length>8)m+=`...و${warn.length-8} آخر\n`;}
+  if(!exp.length&&!crit.length&&!warn.length)m+=`✅ جميع الأصناف بخير 🎉\n`;
+  m+=`\n${'─'.repeat(28)}\n_PharmaNear Nafea - نافع عماد_`;
+  return m;
+}
+function sendWA(products,phone){const m=buildWAMsg(products);window.open((phone?`https://wa.me/${phone}?text=`:`https://wa.me/?text=`)+encodeURIComponent(m),'_blank');}
+
+// ══════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════
+let _toastTimer=null;
+function showToast(msg,type){
+  type=type||'ok';
+  let el=document.getElementById('toast');
+  if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);}
+  el.innerHTML=(type==='ok'?'✓':'✕')+' '+msg;
+  el.style.background=type==='ok'?'linear-gradient(135deg,#14b8a6,#06b6d4)':'linear-gradient(135deg,#ef4444,#f43f5e)';
+  el.className='show';
+  if(_toastTimer)clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(()=>{el.className='';},4000);
+}
+
+// ══════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════════════════════
+async function askNotifPerm(){
+  if(!('Notification' in window))return false;
+  if(Notification.permission==='granted')return true;
+  if(Notification.permission==='denied')return false;
+  return(await Notification.requestPermission())==='granted';
+}
+function fireNativeNotif(products){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const urgent=products.filter(p=>getDays(p.expiryDate)<=90).sort((a,b)=>getDays(a.expiryDate)-getDays(b.expiryDate)).slice(0,3);
+  if(!urgent.length)return;
+  const body=urgent.map(p=>{const d=getDays(p.expiryDate);return`${p.name}: ${d<0?'منتهي':d+' يوم'}`;}).join('\n');
+  try{new Notification('⚠️ PharmaNear - تنبيه اكسباير',{body,tag:'pn-alert',requireInteraction:true});}catch(e){}
+}
+function showInAppNotif(products){
+  const urgent=products.filter(p=>getDays(p.expiryDate)<=90).sort((a,b)=>getDays(a.expiryDate)-getDays(b.expiryDate)).slice(0,4);
+  if(!urgent.length)return;
+  const banner=document.getElementById('notif-banner');
+  if(!banner)return;
+  const rows=urgent.map(p=>{const d=getDays(p.expiryDate);const em=d<0?'🔴':d<=30?'🟠':'🟡';return`<div style="font-size:12px;color:#94a3b8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${em} ${p.name} — ${d<0?'منتهي':d+' يوم'}</div>`;}).join('');
+  banner.innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+      <div style="width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#f97316,#ef4444);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ic('bell',20)}</div>
+      <div style="flex:1;min-width:0;">
+        <p style="color:#14b8a6;font-weight:700;font-size:13px;margin-bottom:4px;">⚠️ أصناف قاربت على الانتهاء</p>
+        ${rows}
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="app.navigate('alerts');closeNotifBanner();" style="flex:1;padding:8px;background:#14b8a6;color:#fff;border-radius:10px;font-weight:700;font-size:12px;font-family:inherit;cursor:pointer;">عرض التنبيهات</button>
+          <button onclick="closeNotifBanner();" style="padding:8px 12px;background:rgba(255,255,255,.08);color:#64748b;border-radius:10px;font-size:12px;font-family:inherit;cursor:pointer;">تجاهل</button>
+        </div>
+      </div>
+      <button onclick="closeNotifBanner();" style="color:#475569;min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;background:none;border:none;">${ic('x',16)}</button>
+    </div>`;
+  banner.className='show notif-in';
+  setTimeout(()=>closeNotifBanner(),15000);
+}
+function closeNotifBanner(){const b=document.getElementById('notif-banner');if(b)b.className='';}
+
+// ══════════════════════════════════════════════════════════
+// APP STATE
+// ══════════════════════════════════════════════════════════
+const state={
+  loggedIn:false,username:'',
+  view:'dashboard',
+  sidebarOpen:false,
+  deleteConfirm:null,
+  editProduct:null,
+  productsFilter:'all',
+  productsSort:{field:'expiryDate',dir:'asc'},
+  productsSearch:'',
+  alertsFilter:'all',
+  alertsExpanded:new Set(),
+  searchQuery:'',searchMode:'name',searchDone:false,
+  _autoBackupTimer:null,_notifTimer:null,
+};
+
+const app={
+  navigate(view){
+    state.view=view;
+    state.sidebarOpen=false;
+    if(view!=='edit')state.editProduct=null;
+    render();
+  },
+  login(username){
+    state.loggedIn=true;state.username=username;
+    startTimers();
+    askNotifPerm().then(()=>setTimeout(scheduleSWNotif,1000));
+    render();
+  },
+  logout(){
+    cancelSWNotif();
+    clearSession();stopTimers();
+    state.loggedIn=false;state.username='';state.view='dashboard';
+    render();
+  },
+};
+
+// ══════════════════════════════════════════════════════════
+// TIMERS
+// ══════════════════════════════════════════════════════════
+function startTimers(){
+  stopTimers();
+  // hourly backup
+  state._autoBackupTimer=setInterval(()=>{
+    const p=getProducts();if(p.length>0){exportBackup(true);showToast('💾 تم حفظ النسخة الاحتياطية');}
+  },60*60*1000);
+  // hourly notifications
+  state._notifTimer=setInterval(()=>{
+    const p=getProducts();
+    const u=p.filter(x=>getDays(x.expiryDate)<=90);
+    if(u.length){showInAppNotif(p);fireNativeNotif(p);if(navigator.vibrate)navigator.vibrate([200,100,200]);}
+  },60*60*1000);
+  // first check after 2 min
+  setTimeout(()=>{
+    const p=getProducts();const u=p.filter(x=>getDays(x.expiryDate)<=90);
+    if(u.length){showInAppNotif(p);fireNativeNotif(p);}
+  },2*60*1000);
+}
+function stopTimers(){
+  if(state._autoBackupTimer)clearInterval(state._autoBackupTimer);
+  if(state._notifTimer)clearInterval(state._notifTimer);
+}
+
+// ══════════════════════════════════════════════════════════
+// HTML BUILDERS
+// ══════════════════════════════════════════════════════════
+
+function buildAuth(){
+  const tabLogin=state._authTab!=='register';
+  return`
+<div class="auth-wrap">
+  <div style="width:100%;max-width:420px;" class="fade-in">
+    <div style="text-align:center;margin-bottom:28px;">
+      <div style="width:76px;height:76px;border-radius:22px;background:linear-gradient(135deg,#14b8a6,#06b6d4);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;box-shadow:0 16px 40px rgba(20,184,166,.4);">${ic('pill',38)}</div>
+      <h1 style="color:#fff;font-size:24px;font-weight:900;">PharmaNear Nafea</h1>
+      <p style="color:#64748b;font-size:13px;margin-top:4px;">إدارة الاكسباير</p>
+    </div>
+    <div style="display:flex;gap:4px;background:rgba(255,255,255,.05);padding:4px;border-radius:16px;margin-bottom:14px;border:1px solid rgba(255,255,255,.08);">
+      <button onclick="switchAuthTab('login')" style="flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:700;font-family:inherit;min-height:46px;cursor:pointer;transition:all .2s;${tabLogin?'background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;':'background:transparent;color:#64748b;'}">${ic('lock',16)} تسجيل الدخول</button>
+      <button onclick="switchAuthTab('register')" style="flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:700;font-family:inherit;min-height:46px;cursor:pointer;transition:all .2s;${!tabLogin?'background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;':'background:transparent;color:#64748b;'}">${ic('userplus',16)} إنشاء حساب</button>
+    </div>
+    <div class="auth-box">
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label class="lbl" style="color:#94a3b8;">اسم المستخدم</label>
+          <div style="position:relative;">
+            <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#475569;">${ic('user',16)}</span>
+            <input id="auth-uname" class="auth-inp" style="padding-right:44px;" placeholder="أدخل اسم المستخدم" type="text" autocomplete="username" onkeydown="if(event.key==='Enter')doAuth()"/>
+          </div>
+        </div>
+        <div>
+          <label class="lbl" style="color:#94a3b8;">كلمة المرور</label>
+          <div style="position:relative;">
+            <input id="auth-pass" class="auth-inp" placeholder="3 أحرف على الأقل" type="password" autocomplete="${tabLogin?'current-password':'new-password'}" onkeydown="if(event.key==='Enter')doAuth()"/>
+            <button onclick="togglePassVis('auth-pass')" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#475569;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;">${ic('eye',16)}</button>
+          </div>
+        </div>
+        ${!tabLogin?`<div><label class="lbl" style="color:#94a3b8;">تأكيد كلمة المرور</label><input id="auth-cpass" class="auth-inp" placeholder="أعد كتابة كلمة المرور" type="password" onkeydown="if(event.key==='Enter')doAuth()"/></div>`:''}
+        <div id="auth-err" style="display:none;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.25);border-radius:12px;padding:10px 14px;color:#f87171;font-size:13px;text-align:center;"></div>
+        <button onclick="doAuth()" class="btn-primary" style="width:100%;justify-content:center;">${ic(tabLogin?'lock':'userplus',18)} ${tabLogin?'دخول':'إنشاء الحساب والدخول'}</button>
+      </div>
+    </div>
+    <div style="margin-top:14px;background:rgba(255,255,255,.05);border-radius:18px;padding:14px;border:1px solid rgba(255,255,255,.08);">
+      <p style="color:#475569;font-size:12px;text-align:center;margin-bottom:10px;">📲 استيراد نسخة احتياطية من جهاز آخر</p>
+      <button onclick="document.getElementById('import-auth-file').click()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#94a3b8;border-radius:14px;font-size:13px;font-weight:600;min-height:46px;font-family:inherit;cursor:pointer;">${ic('upload',16)} استيراد نسخة احتياطية</button>
+      <input id="import-auth-file" type="file" accept=".json" style="display:none;" onchange="handleImportAuth(this)"/>
+    </div>
+    <p style="text-align:center;color:#334155;font-size:12px;margin-top:14px;">جميع الحقوق محفوظة لنافع عماد</p>
+  </div>
+</div>`;
+}
+
+function buildSidebar(){
+  const navs=[
+    {v:'dashboard',l:'لوحة التحكم',i:'dashboard'},
+    {v:'products', l:'الأصناف',     i:'package'},
+    {v:'add',      l:'إضافة صنف',  i:'plus'},
+    {v:'search',   l:'بحث وتحقق',  i:'search'},
+    {v:'alerts',   l:'التنبيهات',  i:'bell'},
+    {v:'settings', l:'الإعدادات',  i:'settings'},
+  ];
+  const prods=getProducts();
+  const alertCount=prods.filter(p=>getDays(p.expiryDate)<=90).length;
+  const critCount=prods.filter(p=>getDays(p.expiryDate)<=30).length;
+  const items=navs.map(n=>{
+    const active=state.view===n.v;
+    const badge=(n.v==='alerts'&&alertCount>0)?`<span style="margin-right:auto;font-size:11px;font-weight:800;padding:2px 7px;border-radius:8px;background:${critCount>0?'#ef4444':'#f59e0b'};color:#fff;">${alertCount}</span>`:'';
+    return`<button class="nav-item${active?' active':''}" onclick="app.navigate('${n.v}')">${ic(n.i,18)}<span style="flex:1;">${n.l}</span>${badge}</button>`;
+  }).join('');
+  return`
+<div class="sidebar${state.sidebarOpen?' open':''}" id="sidebar">
+  <div style="padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.07);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:40px;height:40px;border-radius:13px;background:linear-gradient(135deg,#14b8a6,#06b6d4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">${ic('pill',22)}</div>
+      <div><div style="color:#fff;font-weight:800;font-size:14px;">PharmaNear</div><div style="color:#475569;font-size:11px;">إدارة الاكسباير</div></div>
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border-radius:10px;padding:8px 12px;">
+      ${ic('user',14)}<span style="color:#14b8a6;font-size:12px;font-weight:600;">${state.username}</span>
+    </div>
+  </div>
+  <nav style="flex:1;padding:12px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;">${items}</nav>
+  <div style="padding:12px;border-top:1px solid rgba(255,255,255,.07);">
+    <div style="background:rgba(255,255,255,.04);border-radius:12px;padding:10px;text-align:center;margin-bottom:8px;">
+      <div style="color:#334155;font-size:11px;">جميع الحقوق محفوظة</div>
+      <div style="color:#14b8a6;font-size:13px;font-weight:700;margin-top:2px;">nafea emad</div>
+    </div>
+    <button onclick="app.logout()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:10px;border-radius:12px;color:#475569;font-size:13px;font-weight:600;min-height:44px;font-family:inherit;cursor:pointer;transition:all .2s;" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='#475569'">${ic('logout',16)} تسجيل الخروج</button>
+  </div>
+</div>`;
+}
+
+function buildHeader(){
+  const prods=getProducts();
+  const critCount=prods.filter(p=>getDays(p.expiryDate)<=30).length;
+  const alertBell=critCount>0?`<button onclick="app.navigate('alerts')" style="position:relative;display:flex;align-items:center;gap:6px;padding:7px 12px;background:#fff5f5;border:1.5px solid #fecaca;color:#dc2626;border-radius:12px;font-size:12px;font-weight:700;min-height:38px;font-family:inherit;cursor:pointer;">${ic('bell',16)}<span>${critCount}</span><span class="ping" style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;"></span><span style="position:absolute;top:-4px;right:-4px;width:10px;height:10px;background:#ef4444;border-radius:50%;"></span></button>`:'';
+  return`
+<header class="header">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <button class="menu-btn" onclick="toggleSidebar()" style="width:40px;height:40px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#64748b;min-height:40px;min-width:40px;cursor:pointer;">${ic('menu',20)}</button>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <div style="width:28px;height:28px;border-radius:9px;background:linear-gradient(135deg,#14b8a6,#06b6d4);display:flex;align-items:center;justify-content:center;">${ic('pill',16)}</div>
+      <span style="font-weight:800;color:#0f172a;font-size:14px;">PharmaNear</span>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    ${alertBell}
+    <span style="color:#94a3b8;font-size:12px;font-weight:600;">${prods.length} صنف</span>
+    <button onclick="showLogoutConfirm()" style="width:36px;height:36px;border-radius:11px;background:#fff5f5;border:1.5px solid #fecaca;display:flex;align-items:center;justify-content:center;color:#dc2626;cursor:pointer;flex-shrink:0;" title="تسجيل الخروج">${ic('logout',17)}</button>
+  </div>
+</header>`;
+}
+
+function buildBottomNav(){
+  const navs=[
+    {v:'dashboard',l:'الرئيسية',i:'dashboard'},
+    {v:'products', l:'الأصناف',  i:'package'},
+    {v:'add',      l:'إضافة',    i:'plus'},
+    {v:'search',   l:'بحث',      i:'search'},
+    {v:'alerts',   l:'تنبيهات',  i:'bell'},
+    {v:'settings', l:'إعدادات',  i:'settings'},
+  ];
+  const prods=getProducts();
+  const alertCount=prods.filter(p=>getDays(p.expiryDate)<=90).length;
+  return`<nav class="bottom-nav">${navs.map(n=>{
+    const badge=(n.v==='alerts'&&alertCount>0)?`<span style="position:absolute;top:-2px;right:0;min-width:16px;height:16px;background:#ef4444;border-radius:99px;font-size:10px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 3px;">${alertCount>9?'9+':alertCount}</span>`:'';
+    return`<button class="bnav-btn${state.view===n.v?' active':''}" onclick="app.navigate('${n.v}')" style="border:none;background:none;font-family:inherit;cursor:pointer;"><div style="position:relative;">${ic(n.i,22)}${badge}</div><span>${n.l}</span></button>`;
+  }).join('')}</nav>`;
+}
+
+// ─── Dashboard ────────────────────────────────────────────
+function buildDashboard(){
+  const products=getProducts();
+  const exp=products.filter(p=>getDays(p.expiryDate)<0);
+  const crit=products.filter(p=>{const d=getDays(p.expiryDate);return d>=0&&d<=30;});
+  const warn=products.filter(p=>{const d=getDays(p.expiryDate);return d>30&&d<=90;});
+  const notice=products.filter(p=>{const d=getDays(p.expiryDate);return d>90&&d<=180;});
+  const good=products.filter(p=>getDays(p.expiryDate)>180);
+  const urgent=[...products].sort((a,b)=>getDays(a.expiryDate)-getDays(b.expiryDate)).slice(0,8);
+  const stats=[
+    {l:'إجمالي',v:products.length,i:'package',   from:'#06b6d4',to:'#14b8a6',c:'#0891b2'},
+    {l:'منتهية',v:exp.length,     i:'alert',     from:'#ef4444',to:'#f43f5e',c:'#dc2626'},
+    {l:'حرجة',  v:crit.length,    i:'trending',  from:'#f97316',to:'#ef4444',c:'#ea580c'},
+    {l:'تحذير', v:warn.length,    i:'clock',     from:'#f59e0b',to:'#f97316',c:'#d97706'},
+  ];
+  const bars=[
+    {l:'منتهية',     n:exp.length,    bg:'#ef4444'},
+    {l:'حرجة <30',  n:crit.length,   bg:'#f97316'},
+    {l:'30-90 يوم',  n:warn.length,   bg:'#f59e0b'},
+    {l:'90-180 يوم', n:notice.length, bg:'#eab308'},
+    {l:'>180 يوم',   n:good.length,   bg:'#10b981'},
+  ];
+  const statsHtml=stats.map(s=>`
+<div class="card" style="padding:16px;">
+  <div style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,${s.from},${s.to});display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px ${s.from}44;margin-bottom:10px;color:#fff;">${ic(s.i,22)}</div>
+  <div style="font-size:28px;font-weight:900;color:${s.c};line-height:1;">${s.v}</div>
+  <div style="color:#64748b;font-size:12px;margin-top:4px;font-weight:600;">${s.l}</div>
+</div>`).join('');
+  const barsHtml=bars.map(b=>`
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+  <span style="color:#475569;font-size:12px;width:100px;flex-shrink:0;text-align:right;">${b.l}</span>
+  <div style="flex:1;background:#f1f5f9;border-radius:99px;height:8px;overflow:hidden;">
+    <div style="background:${b.bg};height:100%;border-radius:99px;width:${products.length?Math.round(b.n/products.length*100):0}%;transition:width .8s ease;"></div>
+  </div>
+  <span style="color:#1e293b;font-weight:700;font-size:13px;width:22px;text-align:left;flex-shrink:0;">${b.n}</span>
+</div>`).join('');
+  const urgentRows=urgent.map(p=>{
+    const days=getDays(p.expiryDate);const st=getStatus(days);
+    return`<div style="padding:13px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f8fafc;">
+<span class="dot ${st.dot}"></span>
+<div style="flex:1;min-width:0;"><div style="color:#0f172a;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div><div style="color:#94a3b8;font-size:11px;margin-top:2px;">${p.activeIngredient||''}</div></div>
+<div style="text-align:left;flex-shrink:0;"><div style="font-size:11px;color:#94a3b8;">${fmtDate(p.expiryDate)}</div><div style="font-size:12px;font-weight:700;color:${st.color};">${days<0?'منتهي':days+' يوم'}</div></div>
+<span class="badge ${st.cls}">${st.label}</span>
+</div>`;}).join('');
+  const emptyState=products.length===0?`<div class="card empty-state"><div style="width:60px;height:60px;border-radius:18px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#94a3b8;">${ic('package',30)}</div><div style="color:#475569;font-weight:700;font-size:15px;margin-bottom:14px;">لا توجد أصناف مضافة</div><button onclick="app.navigate('add')" class="btn-primary">${ic('plus',18)} إضافة صنف الآن</button></div>`:'';
+  return`
+<div style="display:flex;flex-direction:column;gap:18px;">
+  <div><div class="page-title">لوحة التحكم</div><div class="page-sub">${new Date().toLocaleDateString('ar-EG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>
+  <div class="grid-2">${statsHtml}</div>
+  <div class="card" style="padding:18px;"><div style="font-size:14px;font-weight:700;color:#334155;margin-bottom:14px;">توزيع الصلاحية</div>${barsHtml}</div>
+  ${urgent.length?`<div class="card"><div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;"><span style="font-size:14px;font-weight:700;color:#334155;">الأكثر إلحاحاً</span><button onclick="app.navigate('products')" style="color:#14b8a6;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;min-height:36px;font-family:inherit;cursor:pointer;">الكل ${ic('bell',14)}</button></div>${urgentRows}</div>`:''}
+  ${emptyState}
+</div>`;
+}
+
+// ─── Product Form ─────────────────────────────────────────
+function buildProductForm(){
+  const p=state.editProduct;
+  const isEdit=!!p;
+  const v=(k,def)=>{if(!p)return def||'';return p[k]!==undefined&&p[k]!==null?p[k]:def||'';};
+  return`
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="page-title">${isEdit?'تعديل الصنف':'إضافة صنف جديد'}</div>
+    <button onclick="app.navigate('products')" style="width:38px;height:38px;border-radius:12px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;color:#64748b;cursor:pointer;">${ic('x',18)}</button>
+  </div>
+  <!-- Basic Info -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('pill',16)} بيانات الصنف الأساسية</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label class="lbl">اسم الصنف <span style="color:#ef4444;">*</span></label><input id="f-name" class="inp" placeholder="مثال: أموكسيسيلين 500 مج كبسول" value="${v('name')}"/><div id="e-name" class="err-msg" style="display:none;"></div></div>
+      <div style="position:relative;">
+        <label class="lbl">المادة الفعالة <span style="color:#ef4444;">*</span></label>
+        <input id="f-ing" class="inp" placeholder="مثال: Amoxicillin" value="${v('activeIngredient')}" oninput="onIngInput()" autocomplete="off"/>
+        <div id="ing-sugg" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;border:1px solid #e2e8f0;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.1);z-index:50;overflow:hidden;"></div>
+        <div id="e-ing" class="err-msg" style="display:none;"></div>
+      </div>
+      <div>
+        <label class="lbl">${ic('barcode',14)} الباركود <span style="font-size:11px;color:#94a3b8;font-weight:400;">(اضغط 📷 للمسح)</span></label>
+        <div style="position:relative;">
+          <input id="f-barcode" class="inp" style="padding-left:48px;" placeholder="اكتب أو امسح الباركود" value="${v('barcode')}" dir="ltr"/>
+          <button type="button" onclick="openScanner('f-barcode')" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;display:flex;align-items:center;justify-content:center;color:#0d9488;cursor:pointer;">${ic('camera',16)}</button>
+        </div>
+      </div>
+      <div>
+        <label class="lbl">${ic('cal',14)} تاريخ الانتهاء <span style="color:#ef4444;">*</span></label>
+        <input id="f-expiry" class="inp" type="date" value="${v('expiryDate')}"/>
+        <div id="e-expiry" class="err-msg" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+  <!-- Quantities -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('layers',16)} الكميات والوحدات</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label class="lbl">عدد الوحدات في الصنف</label><input id="f-upp" class="inp" type="number" min="0" placeholder="مثال: 30" value="${v('unitsPerPack',0)||''}"/><p style="font-size:11px;color:#94a3b8;margin-top:4px;">يُستخدم لحساب سعر الوحدة والإجمالي</p></div>
+      <div class="grid-2">
+        <div><label class="lbl">علب كاملة <span style="color:#ef4444;">*</span></label><input id="f-qty" class="inp" type="number" min="0" placeholder="0" value="${v('quantity',0)||''}"/><div id="e-qty" class="err-msg" style="display:none;"></div></div>
+        <div><label class="lbl">وحدات إضافية</label><input id="f-unit" class="inp" type="number" min="0" placeholder="0" value="${v('unitQty',0)||''}"/><div id="e-unit" class="err-msg" style="display:none;"></div></div>
+      </div>
+      <div id="qty-preview" style="display:none;" class="info-box info-teal"></div>
+    </div>
+  </div>
+  <!-- Price -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('dollar',16)} السعر والمورد</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div><label class="lbl">سعر البيع (ج.م) <span style="color:#ef4444;">*</span></label><input id="f-price" class="inp" type="number" min="0" step="0.01" placeholder="0.00" value="${v('sellingPrice','')||''}"/><div id="e-price" class="err-msg" style="display:none;"></div></div>
+      <div id="unit-price-preview" style="display:none;" class="info-box" style="background:#f0fdf4;border:1px solid #86efac;"></div>
+      <div><label class="lbl">${ic('truck',14)} المورد</label><input id="f-supplier" class="inp" placeholder="اختياري" value="${v('supplier')}"/></div>
+      <div><label class="lbl">${ic('file',14)} ملاحظات</label><textarea id="f-notes" class="inp" rows="3" style="resize:none;">${v('notes')}</textarea></div>
+    </div>
+  </div>
+  <div style="display:flex;gap:10px;padding-bottom:80px;">
+    <button onclick="submitProductForm()" class="btn-primary" style="flex:1;justify-content:center;">${ic('save',18)} ${isEdit?'حفظ التعديلات':'إضافة الصنف'}</button>
+    <button onclick="app.navigate('products')" class="btn-sec">إلغاء</button>
+  </div>
+</div>`;
+}
+
+// ─── Products Table ───────────────────────────────────────
+function buildProducts(){
+  let products=getProducts();
+  const {field,dir}=state.productsSort;
+  const q=state.productsSearch.toLowerCase();
+  const f=state.productsFilter;
+  // filter
+  products=products.filter(p=>{
+    if(q&&!p.name.toLowerCase().includes(q)&&!(p.activeIngredient||'').toLowerCase().includes(q)&&!(p.barcode||'').toLowerCase().includes(q))return false;
+    const d=getDays(p.expiryDate);
+    if(f==='expired')return d<0;
+    if(f==='critical')return d>=0&&d<=30;
+    if(f==='warning')return d>30&&d<=90;
+    if(f==='good')return d>180;
+    return true;
+  });
+  // sort
+  products.sort((a,b)=>{
+    let va='',vb='';
+    if(field==='expiryDate'){va=a.expiryDate;vb=b.expiryDate;}
+    else if(field==='name'){va=a.name;vb=b.name;}
+    else if(field==='qty'){va=getTotal(a);vb=getTotal(b);}
+    if(va<vb)return dir==='asc'?-1:1;if(va>vb)return dir==='asc'?1:-1;return 0;
+  });
+  const all=getProducts();
+  const fOpts=[
+    {v:'all',l:'الكل',c:all.length},
+    {v:'expired',l:'منتهية',c:all.filter(p=>getDays(p.expiryDate)<0).length},
+    {v:'critical',l:'< 30',c:all.filter(p=>{const d=getDays(p.expiryDate);return d>=0&&d<=30;}).length},
+    {v:'warning',l:'30-90',c:all.filter(p=>{const d=getDays(p.expiryDate);return d>30&&d<=90;}).length},
+    {v:'good',l:'جيد',c:all.filter(p=>getDays(p.expiryDate)>180).length},
+  ];
+  const filterBtns=fOpts.map(o=>`<button class="filter-btn${state.productsFilter===o.v?' active':''}" onclick="setProdsFilter('${o.v}')">${o.l} <span style="opacity:.7;font-size:11px;">${o.c}</span></button>`).join('');
+  const sArrow=f=>state.productsSort.field===f?(state.productsSort.dir==='asc'?'↑':'↓'):'';
+  const cards=products.map((p,idx)=>{
+    const days=getDays(p.expiryDate);const st=getStatus(days);
+    const uPrice=(p.sellingPrice&&p.unitsPerPack&&p.unitsPerPack>0)?(p.sellingPrice/p.unitsPerPack).toFixed(2):null;
+    const qtyStr=p.unitsPerPack?`${p.quantity||0} علبة + ${p.unitQty||0} قطعة`:`${p.quantity||0} علبة`;
+    const delBtn=state.deleteConfirm===p.id
+      ?`<div style="display:flex;gap:8px;margin-top:10px;"><button onclick="confirmDelete('${p.id}')" style="flex:1;font-size:12px;padding:9px;background:#ef4444;color:#fff;border-radius:10px;font-weight:700;font-family:inherit;cursor:pointer;border:none;">تأكيد الحذف</button><button onclick="cancelDelete()" style="flex:1;font-size:12px;padding:9px;background:#f1f5f9;color:#64748b;border-radius:10px;font-weight:700;font-family:inherit;cursor:pointer;border:none;">إلغاء</button></div>`
+      :`<div style="display:flex;gap:8px;margin-top:10px;"><button onclick="startEdit('${p.id}')" style="flex:1;padding:9px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">${ic('pencil',13)} تعديل</button><button onclick="startDelete('${p.id}')" style="flex:1;padding:9px;border-radius:10px;background:#fff5f5;border:1px solid #fecaca;color:#dc2626;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">${ic('trash',13)} حذف</button></div>`;
+    return`<div class="card" style="padding:14px;border-right:4px solid ${st.color};"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;"><div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;line-height:1.4;">${p.name}</div><div style="font-size:12px;color:#64748b;margin-top:2px;">${p.activeIngredient||''}</div>${p.barcode?`<div style="font-size:11px;color:#94a3b8;font-family:monospace;margin-top:2px;">${p.barcode}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;"><span class="badge ${st.cls}">${st.label}</span><span style="font-size:11px;color:#94a3b8;">#${idx+1}</span></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">📅 تاريخ الانتهاء</div><div style="font-size:12px;font-weight:700;color:#334155;">${fmtDate(p.expiryDate)}</div><div style="font-size:12px;font-weight:800;color:${st.color};">${days<0?'منتهي':days+' يوم'}</div></div><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">📦 الكمية</div><div style="font-size:12px;font-weight:700;color:#334155;">${qtyStr}</div></div><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">💰 سعر البيع</div><div style="font-size:12px;font-weight:700;color:#334155;">${fmtCur(p.sellingPrice)}</div>${uPrice?`<div style="font-size:11px;color:#16a34a;">${uPrice} ج.م / قطعة</div>`:''}</div>${p.supplier?`<div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">🚚 المورد</div><div style="font-size:12px;font-weight:700;color:#334155;">${p.supplier}</div></div>`:'<div></div>'}</div>${delBtn}</div>`;}).join('');
+  return`
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div><div class="page-title">الأصناف</div><div class="page-sub">${getProducts().length} صنف مسجل</div></div>
+    <button onclick="app.navigate('add')" class="btn-primary" style="padding:10px 16px;font-size:13px;">${ic('plus',16)} إضافة</button>
+  </div>
+  <div style="position:relative;"><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#94a3b8;">${ic('search',16)}</span><input class="inp" style="padding-right:44px;" placeholder="بحث باسم أو باركود أو مادة فعالة..." value="${state.productsSearch}" oninput="setProdsSearch(this.value)"/></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">${filterBtns}</div>
+  ${products.length===0?`<div class="card empty-state"><div style="color:#94a3b8;">${ic('alert',36)}</div><div style="color:#94a3b8;font-weight:600;margin-top:10px;">لا توجد نتائج</div></div>`:`
+  <div style="display:flex;flex-direction:column;gap:10px;">
+    <div style="font-size:12px;color:#64748b;text-align:right;padding:0 4px;">إجمالي: <strong style="color:#334155;">${products.length}</strong> صنف</div>
+    ${cards}
+  </div>`}
+  <div style="height:70px;"></div>
+</div>`;
+}
+
+// ─── Search & Check ───────────────────────────────────────
+function buildSearch(){
+  const products=getProducts();
+  const {searchQuery:q,searchMode:mode,searchDone:done}=state;
+  let resultHtml='';
+  if(done&&q.trim()){
+    const lq=q.trim().toLowerCase();
+    const selling=products.filter(p=>mode==='barcode'?((p.barcode||'').trim().toLowerCase()===lq&&(p.quantity||0)>0):(p.name.trim().toLowerCase()===lq&&(p.quantity||0)>0));
+    const searchName=mode==='barcode'&&selling.length?selling[0].name:q.trim();
+    const lsn=searchName.toLowerCase();
+    // find alts
+    const alerts=[];
+    selling.forEach(s=>{
+      const ing=(s.activeIngredient||'').trim().toLowerCase();
+      const sDays=getDays(s.expiryDate);
+      products.filter(p=>p.id!==s.id&&(p.activeIngredient||'').trim().toLowerCase()===ing&&(p.quantity||0)>0).forEach(a=>{
+        const aDays=getDays(a.expiryDate);
+        if(aDays<sDays)alerts.push({sell:s,near:a,type:aDays<0?'critical':aDays<=30?'critical':'warning'});
+      });
+    });
+    alerts.sort((a,b)=>getDays(a.near.expiryDate)-getDays(b.near.expiryDate));
+    if(selling.length){
+      const sCards=selling.map(p=>{const d=getDays(p.expiryDate);const st=getStatus(d);return`<div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:14px;" class="${st.cls}" style="border:1.5px solid;"><span class="dot ${st.dot}"></span><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:14px;">${p.name}</div><div style="font-size:12px;color:#64748b;margin-top:2px;">${p.activeIngredient||''}</div></div><div style="text-align:left;"><div style="font-weight:800;font-size:13px;color:${st.color};">${d<0?'منتهي':d+' يوم'}</div><div style="font-size:11px;color:#94a3b8;">${fmtDate(p.expiryDate)}</div></div></div>`;}).join('');
+      resultHtml+=`<div class="card" style="padding:16px;"><div style="font-size:13px;font-weight:700;color:#64748b;margin-bottom:10px;display:flex;align-items:center;gap:6px;">${ic('package',16)} الصنف المُراد بيعه</div>${sCards}</div>`;
+    }
+    if(alerts.length){
+      resultHtml+=`<div class="info-box info-amber" style="display:flex;align-items:flex-start;gap:10px;"><div style="color:#f59e0b;">${ic('alert',20)}</div><div><div style="font-weight:800;font-size:14px;">تنبيه!</div><div style="font-size:12px;margin-top:3px;">يوجد ${alerts.length} صنف بنفس المادة الفعالة أقرب للانتهاء</div></div></div>`;
+      alerts.forEach(al=>{
+        const nd=getDays(al.near.expiryDate);const nst=getStatus(nd);const sd=getDays(al.sell.expiryDate);
+        const borderCol=al.type==='critical'?'#fca5a5':'#fed7aa';const headerBg=al.type==='critical'?'#ef4444':'#f97316';
+        resultHtml+=`<div class="card" style="border:2px solid ${borderCol};"><div style="padding:11px 16px;background:${headerBg};display:flex;align-items:center;justify-content:space-between;"><span style="color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px;">${ic('alert',16)} ${al.type==='critical'?'خطر! بيع فوراً':'تحذير - بيع أولاً'}</span><span style="color:rgba(255,255,255,.85);font-size:11px;">أقدم بـ ${sd-nd} يوم</span></div><div style="padding:14px;"><div style="padding:12px;border-radius:12px;" class="${nst.cls}"><div style="font-size:11px;font-weight:700;color:#64748b;margin-bottom:6px;">⚠️ بيعه أولاً</div><div style="font-weight:800;color:#0f172a;font-size:14px;">${al.near.name}</div><div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;"><span style="font-size:12px;color:#64748b;">${fmtDate(al.near.expiryDate)}</span><span style="font-size:12px;font-weight:700;color:${nst.color};">${nd<0?'منتهي':nd+' يوم'}</span><span style="font-size:12px;color:#64748b;">${al.near.quantity||0} علبة</span></div></div></div></div>`;
+      });
+    }else if(done&&selling.length){
+      resultHtml+=`<div style="display:flex;align-items:center;gap:14px;background:#f0fdf4;border:1.5px solid #86efac;border-radius:16px;padding:18px;"><div style="width:46px;height:46px;border-radius:14px;background:#16a34a;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;">${ic('check',24)}</div><div><div style="font-weight:800;color:#15803d;font-size:15px;">لا توجد بدائل أقرب!</div><div style="color:#16a34a;font-size:13px;margin-top:3px;">يمكنك البيع بأمان ✓</div></div></div>`;
+    }else if(done){
+      resultHtml+=`<div style="display:flex;align-items:center;gap:14px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:16px;padding:18px;"><div style="width:46px;height:46px;border-radius:14px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;color:#94a3b8;flex-shrink:0;">${ic('search',24)}</div><div><div style="font-weight:700;color:#475569;font-size:14px;">الصنف غير موجود في النظام</div><div style="color:#94a3b8;font-size:12px;margin-top:3px;">يمكنك البيع بشكل عادي</div></div></div>`;
+    }
+  }
+  return`
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div><div class="page-title">بحث وتحقق</div><div class="page-sub">تحقق قبل البيع من وجود بدائل أقرب للانتهاء</div></div>
+  <div class="card" style="padding:18px;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button onclick="setSearchMode('name')" style="flex:1;padding:11px;border-radius:12px;font-size:13px;font-weight:700;min-height:46px;cursor:pointer;font-family:inherit;transition:all .2s;${mode==='name'?'background:#0f172a;color:#fff;border:none;':'background:#f1f5f9;color:#64748b;border:none;'}">بالاسم</button>
+      <button onclick="setSearchMode('barcode')" style="flex:1;padding:11px;border-radius:12px;font-size:13px;font-weight:700;min-height:46px;cursor:pointer;font-family:inherit;transition:all .2s;${mode==='barcode'?'background:#0f172a;color:#fff;border:none;':'background:#f1f5f9;color:#64748b;border:none;'}">بالباركود</button>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <div style="position:relative;flex:1;">
+        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#94a3b8;">${ic(mode==='barcode'?'barcode':'search',18)}</span>
+        <input id="search-inp" class="inp" style="padding-right:48px;font-size:16px;${mode==='barcode'?'direction:ltr;text-align:left;':''}" placeholder="${mode==='barcode'?'الباركود...':'اسم الصنف...'}" value="${q}" oninput="state.searchQuery=this.value;state.searchDone=false;" onkeydown="if(event.key==='Enter')doSearch()"/>
+      </div>
+      <button onclick="openScanner('search-inp',true)" style="width:50px;height:50px;background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:none;cursor:pointer;">${ic('camera',22)}</button>
+      <button onclick="doSearch()" style="padding:0 16px;background:#0f172a;color:#fff;border-radius:14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px;flex-shrink:0;min-height:50px;border:none;cursor:pointer;font-family:inherit;">${ic('zap',16)} تحقق</button>
+    </div>
+  </div>
+  ${resultHtml||(!done?`<div class="card" style="padding:18px;"><div style="font-size:14px;font-weight:700;color:#334155;margin-bottom:14px;">كيفية الاستخدام</div>${['افتح فاتورة المبيعات','اضغط 📷 وامسح باركود الصنف مباشرة','أو ابحث بالاسم يدوياً','إذا ظهر تنبيه، بيع الأقرب للانتهاء أولاً','إذا لم يظهر تنبيه، أكمل البيع بأمان'].map((s,i)=>`<div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;"><div style="width:26px;height:26px;border-radius:8px;background:${['#14b8a6','#06b6d4','#3b82f6','#f59e0b','#10b981'][i]};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0;">${i+1}</div><p style="color:#475569;font-size:13px;margin-top:3px;">${s}</p></div>`).join('')}</div>`:'')  }
+  <div style="height:70px;"></div>
+</div>`;
+}
+
+// ─── Alerts ───────────────────────────────────────────────
+function buildAlerts(){
+  const products=getProducts();
+  const f=state.alertsFilter;
+  const exp=products.filter(p=>getDays(p.expiryDate)<0);
+  const crit=products.filter(p=>{const d=getDays(p.expiryDate);return d>=0&&d<=30;});
+  const warn=products.filter(p=>{const d=getDays(p.expiryDate);return d>30&&d<=90;});
+  // conflicts
+  const ingMap={};products.forEach(p=>{const k=(p.activeIngredient||'').trim().toLowerCase();if(!ingMap[k])ingMap[k]=[];ingMap[k].push(p);});
+  const conflicts=Object.values(ingMap).filter(v=>v.length>1).map(items=>{const sorted=[...items].sort((a,b)=>getDays(a.expiryDate)-getDays(b.expiryDate));return{ing:sorted[0].activeIngredient,items:sorted,minDays:getDays(sorted[0].expiryDate)};}).sort((a,b)=>a.minDays-b.minDays);
+  const total=exp.length+crit.length+warn.length;
+  const tabs=[{k:'all',l:'الكل',c:total+conflicts.length},{k:'expired',l:'منتهية',c:exp.length},{k:'critical',l:'حرجة',c:crit.length},{k:'warning',l:'تحذير',c:warn.length},{k:'conflicts',l:'تعارضات',c:conflicts.length}];
+  let body='';
+  if(total===0&&conflicts.length===0){body=`<div class="card empty-state"><div style="width:60px;height:60px;border-radius:18px;background:#f0fdf4;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#16a34a;">${ic('check',30)}</div><div style="color:#334155;font-weight:700;font-size:15px;">لا توجد تنبيهات 🎉</div></div>`;}
+  if(f==='all'||f==='conflicts'){
+    conflicts.forEach(g=>{
+      const expanded=state.alertsExpanded.has(g.ing);
+      const mst=getStatus(g.minDays);
+      const rows=expanded?g.items.map((p,i)=>{const d=getDays(p.expiryDate);const st=getStatus(d);return`<div style="padding:11px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f8fafc;${i===0?'background:'+st.cls:''};"><span style="font-size:11px;font-weight:800;padding:2px 8px;border-radius:8px;flex-shrink:0;background:${i===0?'#ef4444':'#f1f5f9'};color:${i===0?'#fff':'#64748b'};min-width:36px;text-align:center;">${i===0?'أولاً':i+1}</span><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div><div style="font-size:11px;color:#94a3b8;margin-top:1px;">${fmtDate(p.expiryDate)} • ${p.quantity||0} علبة</div></div><span style="font-size:12px;font-weight:700;flex-shrink:0;color:${st.color};">${d<0?'منتهي':d+' يوم'}</span></div>`;}).join(''):'';
+      body+=`<div class="card" style="border:1.5px solid ${g.minDays<0?'#fca5a5':g.minDays<=30?'#fed7aa':'#e9d5ff'};margin-bottom:10px;"><button onclick="toggleAlertGroup('${g.ing.replace(/'/g,"\\'")}')" style="width:100%;padding:14px 16px;display:flex;align-items:center;gap:10px;text-align:right;min-height:52px;background:none;border:none;cursor:pointer;font-family:inherit;"><span class="dot ${mst.dot}"></span><div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;">${g.ing}</div><div style="font-size:12px;color:#64748b;margin-top:2px;">${g.items.length} أصناف</div></div><span style="font-size:13px;font-weight:700;color:${mst.color};">${g.minDays<0?'يوجد منتهي':g.minDays+' يوم'}</span><span style="color:#94a3b8;font-size:12px;display:inline-block;transition:transform .2s;${expanded?'transform:rotate(180deg)':''}">▼</span></button>${expanded?`<div style="border-top:1px solid #f1f5f9;">${rows}</div>`:''}</div>`;
+    });
+  }
+  const listSection=(items,color,title)=>{if(!items.length)return'';const rows=items.map(p=>{const d=getDays(p.expiryDate);const st=getStatus(d);return`<div style="padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #f8fafc;"><span class="dot ${st.dot}"></span><div style="flex:1;min-width:0;"><div style="font-weight:700;color:#0f172a;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div><div style="font-size:11px;color:#94a3b8;margin-top:1px;">${p.activeIngredient||''}</div></div><div style="text-align:left;flex-shrink:0;"><div style="font-size:11px;color:#94a3b8;">${fmtDate(p.expiryDate)}</div><div style="font-size:12px;font-weight:800;color:${st.color};">${d<0?'منتهي':d+' يوم'}</div></div></div>`;}).join('');return`<div class="card" style="border:1.5px solid ${color};margin-bottom:10px;">${rows}</div>`;};
+  if(f==='all'||f==='expired')body+=listSection(exp,'#fca5a5','منتهية');
+  if(f==='all'||f==='critical')body+=listSection(crit,'#fed7aa','حرجة');
+  if(f==='all'||f==='warning')body+=listSection(warn,'#fde68a','تحذير');
+  return`
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div><div class="page-title">التنبيهات</div><div class="page-sub">${total+conflicts.length} تنبيه</div></div>
+    <div style="width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#f59e0b,#f97316);display:flex;align-items:center;justify-content:center;color:#fff;">${ic('bell',22)}</div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;">${tabs.map(t=>`<button class="filter-btn${f===t.k?' active':''}" onclick="setAlertsFilter('${t.k}')">${t.l}${t.c>0?` <span style="opacity:.7;font-size:11px;">${t.c}</span>`:''}</button>`).join('')}</div>
+  ${body}
+  <div style="height:70px;"></div>
+</div>`;
+}
+
+// ─── Settings ─────────────────────────────────────────────
+function buildSettings(){
+  const lastBk=ls.get(K.userBackup(_currentUser()));
+  const lastBkStr=lastBk?new Date(lastBk).toLocaleString('ar-EG'):'لم يتم بعد';
+  const phone=ls.get(K.userPhone(_currentUser()))||'';
+  const notifPerm=typeof Notification!=='undefined'?Notification.permission:'unsupported';
+  return`
+<div style="display:flex;flex-direction:column;gap:14px;">
+  <div><div class="page-title">الإعدادات</div><div class="page-sub">إدارة البيانات والحساب</div></div>
+  <!-- Notifications -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('bell',16)} الإشعارات والنسخ التلقائي</div>
+    <div class="info-box info-amber" style="margin-bottom:12px;font-size:13px;line-height:1.7;">
+      🔔 إشعار داخل التطبيق: كل ساعة<br>
+      📲 إشعار النظام: <strong>${notifPerm==='granted'?'مفعّل ✓':notifPerm==='denied'?'محظور ✗':'لم يُفعَّل'}</strong><br>
+      💾 نسخة احتياطية: كل ساعة تلقائياً
+    </div>
+    ${notifPerm==='default'?`<button onclick="enableNotif()" class="btn-primary" style="width:100%;justify-content:center;">🔔 تفعيل إشعارات النظام</button>`:''}
+    ${notifPerm==='granted'?`<button onclick="testNotif()" style="width:100%;padding:12px;background:#f0fdfa;border:1.5px solid #99f6e4;color:#0d9488;border-radius:14px;font-weight:700;font-size:13px;min-height:46px;font-family:inherit;cursor:pointer;">🧪 اختبار الإشعارات الآن</button>`:''}
+    ${notifPerm==='denied'?`<div class="info-box info-red" style="font-size:12px;">⚠️ الإشعارات محظورة. افتح إعدادات المتصفح وأعطِ إذن الإشعارات يدوياً</div>`:''}
+    <div class="info-box info-blue" style="margin-top:12px;font-size:12px;line-height:1.7;">
+      📱 <strong>تثبيت على الشاشة الرئيسية:</strong><br>
+      <strong>iPhone:</strong> اضغط ↑ ثم "أضف للشاشة الرئيسية"<br>
+      <strong>Android:</strong> اضغط ⋮ ثم "إضافة إلى الشاشة الرئيسية"
+    </div>
+  </div>
+  <!-- Backup -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('download',16)} النسخ الاحتياطي</div>
+    <div class="info-box info-teal" style="margin-bottom:12px;font-size:13px;">✓ آخر نسخة: <strong>${lastBkStr}</strong></div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="doExport()" class="btn-primary" style="width:100%;justify-content:center;">${ic('download',18)} تصدير نسخة احتياطية</button>
+      <button onclick="document.getElementById('import-file').click()" class="btn-sec" style="width:100%;justify-content:center;">${ic('upload',18)} استيراد من ملف</button>
+      <input id="import-file" type="file" accept=".json" style="display:none;" onchange="handleImport(this)"/>
+    </div>
+  </div>
+  <!-- WhatsApp -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${icFill('wa',16)} تقرير واتساب</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input id="wa-phone" class="inp flex-1" placeholder="201012345678" value="${phone}" dir="ltr"/>
+      <button onclick="savePhone()" style="padding:0 16px;background:#0f172a;color:#fff;border-radius:14px;font-weight:700;font-size:13px;min-height:50px;border:none;cursor:pointer;font-family:inherit;">حفظ</button>
+    </div>
+    <button onclick="doWA()" style="width:100%;padding:13px;background:#16a34a;color:#fff;border-radius:14px;font-weight:700;font-size:14px;min-height:50px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;">${icFill('wa',18)} إرسال تقرير الاكسباير</button>
+  </div>
+  <!-- Change Password -->
+  <div class="card" style="padding:18px;">
+    <div class="section-title">${ic('lock',16)} تغيير كلمة المرور</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div><label class="lbl">كلمة المرور الحالية</label><input id="s-oldp" class="inp" type="password" placeholder="كلمة المرور الحالية"/></div>
+      <div class="grid-2">
+        <div><label class="lbl">الجديدة</label><input id="s-newp" class="inp" type="password" placeholder="3 أحرف+"/></div>
+        <div><label class="lbl">تأكيد</label><input id="s-conp" class="inp" type="password" placeholder="تأكيد"/></div>
+      </div>
+      <div id="s-err" style="display:none;" class="info-box info-red font-size:13px;"></div>
+      <button onclick="changePass()" style="padding:12px 20px;background:#0f172a;color:#fff;border-radius:14px;font-weight:700;font-size:14px;min-height:48px;border:none;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px;width:fit-content;">${ic('save',16)} حفظ</button>
+    </div>
+  </div>
+  <!-- Stats -->
+  <div class="card" style="padding:18px;">
+    <div style="font-size:14px;font-weight:700;color:#334155;margin-bottom:14px;">إحصائيات</div>
+    <div class="grid-2">${[
+      {l:'إجمالي الأصناف',v:getProducts().length,c:'#0891b2'},
+      {l:'حجم البيانات',v:(JSON.stringify(getProducts()).length/1024).toFixed(1)+' KB',c:'#475569'},
+      {l:'المنتهية',v:getProducts().filter(p=>getDays(p.expiryDate)<0).length,c:'#dc2626'},
+      {l:'الحرجة',v:getProducts().filter(p=>{const d=getDays(p.expiryDate);return d>=0&&d<=30;}).length,c:'#ea580c'},
+    ].map(s=>`<div style="background:#f8fafc;border-radius:14px;padding:14px;"><div style="color:#94a3b8;font-size:12px;font-weight:600;">${s.l}</div><div style="font-size:24px;font-weight:900;color:${s.c};margin-top:4px;line-height:1;">${s.v}</div></div>`).join('')}</div>
+  </div>
+  <div style="height:70px;"></div>
+</div>`;
+}
+
+// ─── Barcode Scanner ──────────────────────────────────────
+let _scannerTargetId=null,_scannerSearchMode=false,_stream=null,_bdetLoop=null,_scanActive=false;
+
+function openScanner(targetInputId,isSearch){
+  _scannerTargetId=targetInputId;
+  _scannerSearchMode=!!isSearch;
+  const modal=document.getElementById('scanner-modal');
+  if(modal)modal.style.display='flex';
+  startScannerCamera();
+}
+
+function closeScanner(){
+  _scanActive=false;
+  if(_bdetLoop){cancelAnimationFrame(_bdetLoop);_bdetLoop=null;}
+  if(_stream){_stream.getTracks().forEach(t=>t.stop());_stream=null;}
+  const modal=document.getElementById('scanner-modal');
+  if(modal)modal.style.display='none';
+  const vid=document.getElementById('scanner-video');
+  if(vid){vid.srcObject=null;}
+}
+
+async function startScannerCamera(){
+  const vid=document.getElementById('scanner-video');
+  const status=document.getElementById('scanner-status');
+  if(!vid||!status)return;
+  _scanActive=true;
+  status.innerHTML='<span style="color:#94a3b8;">جاري فتح الكاميرا...</span>';
+
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    status.innerHTML='<span style="color:#ef4444;">⚠️ الكاميرا غير مدعومة في هذا المتصفح</span>';return;
+  }
+
+  // Try cameras in order
+  const tries=[
+    {video:{facingMode:{exact:'environment'}}},
+    {video:{facingMode:'environment'}},
+    {video:{facingMode:'user'}},
+    {video:true}
+  ];
+  let stream=null;
+  for(const c of tries){
+    try{stream=await navigator.mediaDevices.getUserMedia(c);break;}
+    catch(e){
+      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
+        status.innerHTML='<span style="color:#ef4444;">⚠️ لم يُسمح بالكاميرا — افتح الإعدادات وأعطِ إذن الكاميرا للمتصفح</span>';
+        return;
+      }
+    }
+  }
+  if(!stream){status.innerHTML='<span style="color:#ef4444;">⚠️ تعذّر فتح أي كاميرا</span>';return;}
+  _stream=stream;
+
+  // Continuous focus if supported
+  const track=stream.getVideoTracks()[0];
+  try{
+    const caps=track.getCapabilities?.();
+    const adv={};
+    if(caps?.focusMode?.includes('continuous'))adv.focusMode='continuous';
+    if(caps?.exposureMode?.includes('continuous'))adv.exposureMode='continuous';
+    if(Object.keys(adv).length)await track.applyConstraints({advanced:[adv]});
+  }catch(e){}
+
+  // Attach stream
+  vid.srcObject=stream;
+  vid.muted=true;
+  vid.playsInline=true;
+
+  try{
+    await new Promise((res)=>{
+      if(vid.readyState>=3)return res();
+      vid.onloadeddata=res;
+      setTimeout(res,4000);
+    });
+    await vid.play();
+  }catch(e){console.warn('play err',e);}
+
+  status.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px;color:#14b8a6;"><span class="ping" style="width:8px;height:8px;background:#14b8a6;border-radius:50%;display:inline-block;flex-shrink:0;"></span>وجّه الكاميرا نحو الباركود</span>';
+
+  // ── Strategy A: Native BarcodeDetector (Chrome Android) ──
+  if('BarcodeDetector' in window){
+    let det;
+    try{
+      const supported=await BarcodeDetector.getSupportedFormats();
+      det=new BarcodeDetector({formats:supported.length?supported:['ean_13','ean_8','code_128','qr_code','upc_a','upc_e']});
+    }catch(e){try{det=new BarcodeDetector();}catch(e2){det=null;}}
+
+    if(det){
+      const cvs=document.createElement('canvas');
+      const cx=cvs.getContext('2d');
+      let busy=false;
+      async function loop(){
+        if(!_scanActive)return;
+        if(!busy&&vid.readyState>=2&&vid.videoWidth>0){
+          busy=true;
+          cvs.width=vid.videoWidth;cvs.height=vid.videoHeight;
+          cx.drawImage(vid,0,0);
+          try{
+            const r=await det.detect(cvs);
+            if(r.length&&_scanActive){
+              if(navigator.vibrate)navigator.vibrate([60,30,60]);
+              onBarcodeScanned(r[0].rawValue);return;
+            }
+          }catch(e){}
+          busy=false;
+        }
+        _bdetLoop=requestAnimationFrame(loop);
+      }
+      _bdetLoop=requestAnimationFrame(loop);
+      return;
+    }
+  }
+
+  // ── Strategy B: ZXing (loaded via CDN) ──
+  if(window.ZXing){
+    try{
+      const hints=new Map([[window.ZXing.DecodeHintType.TRY_HARDER,true]]);
+      const reader=new window.ZXing.BrowserMultiFormatReader(hints);
+      _stream._zx=reader;
+      reader.decodeFromStream(stream,vid,(result,err)=>{
+        if(result&&_scanActive){
+          if(navigator.vibrate)navigator.vibrate([60,30,60]);
+          onBarcodeScanned(result.getText());
+        }
+      });
+    }catch(e){
+      status.innerHTML='<span style="color:#f59e0b;">📷 الكاميرا تعمل — أدخل الباركود يدوياً</span>';
+    }
+    return;
+  }
+
+  status.innerHTML='<span style="color:#f59e0b;">📷 الكاميرا تعمل — أدخل الباركود يدوياً</span>';
+}
+function onBarcodeScanned(code){
+  closeScanner();
+  if(_scannerSearchMode){
+    state.searchMode='barcode';state.searchQuery=code;state.searchDone=false;
+    render();
+    setTimeout(()=>{const inp=document.getElementById('search-inp');if(inp)inp.value=code;doSearch();},50);
+  }else{
+    const inp=document.getElementById(_scannerTargetId);if(inp){inp.value=code;inp.dispatchEvent(new Event('input'));}
+  }
+}
+function manualBarcodeConfirm(){
+  const inp=document.getElementById('manual-barcode');
+  if(inp&&inp.value.trim())onBarcodeScanned(inp.value.trim());
+}
+
+// ══════════════════════════════════════════════════════════
+// EVENT HANDLERS (global functions called from HTML)
+// ══════════════════════════════════════════════════════════
+function toggleSidebar(){state.sidebarOpen=!state.sidebarOpen;render();}
+function togglePassVis(id){const el=document.getElementById(id);if(el)el.type=el.type==='password'?'text':'password';}
+function switchAuthTab(tab){state._authTab=tab;render();}
+function doAuth(){
+  const isLogin=state._authTab!=='register';
+  const uname=(document.getElementById('auth-uname')?.value||'').trim();
+  const pass=document.getElementById('auth-pass')?.value||'';
+  const cpass=document.getElementById('auth-cpass')?.value||'';
+  const errEl=document.getElementById('auth-err');
+  const showErr=msg=>{if(errEl){errEl.textContent=msg;errEl.style.display='block';}};
+  if(!uname||!pass){showErr('يرجى ملء جميع الحقول');return;}
+  if(isLogin){
+    const r=loginAccount(uname,pass);
+    if(r.ok)app.login(r.username);else showErr(r.err);
+  }else{
+    if(uname.length<3){showErr('اسم المستخدم 3 أحرف على الأقل');return;}
+    if(pass.length<3){showErr('كلمة المرور 3 أحرف على الأقل');return;}
+    if(pass!==cpass){showErr('كلمتا المرور غير متطابقتان');return;}
+    const r=registerAccount(uname,pass);
+    if(r.ok){loginAccount(uname,pass);app.login(uname);}else showErr(r.err);
+  }
+}
+function handleImportAuth(input){
+  const file=input.files[0];if(!file)return;
+  importBackup(file,(prods,accs)=>{showToast(`تم استيراد ${accs} حساب و${prods} صنف ✓`);},err=>showToast('خطأ: '+err,'err'));
+  input.value='';
+}
+function onIngInput(){
+  const val=(document.getElementById('f-ing')?.value||'').trim().toLowerCase();
+  const sugg=document.getElementById('ing-sugg');
+  if(!sugg)return;
+  if(val.length<2){sugg.style.display='none';return;}
+  const ings=[...new Set(getProducts().map(p=>p.activeIngredient||'').filter(Boolean))];
+  const matches=ings.filter(i=>i.toLowerCase().includes(val)&&i.toLowerCase()!==val).slice(0,5);
+  if(!matches.length){sugg.style.display='none';return;}
+  sugg.innerHTML=matches.map(m=>`<div onclick="document.getElementById('f-ing').value='${m.replace(/'/g,"\\'")}';document.getElementById('ing-sugg').style.display='none';" style="padding:12px 16px;font-size:14px;color:#334155;cursor:pointer;border-bottom:1px solid #f8fafc;" onmouseover="this.style.background='#f0fdfa'" onmouseout="this.style.background=''">${m}</div>`).join('');
+  sugg.style.display='block';
+}
+function updateFormPreviews(){
+  const qty=parseInt(document.getElementById('f-qty')?.value)||0;
+  const unit=parseInt(document.getElementById('f-unit')?.value)||0;
+  const upp=parseInt(document.getElementById('f-upp')?.value)||0;
+  const price=parseFloat(document.getElementById('f-price')?.value)||0;
+  // validate unit < upp
+  const unitErrEl=document.getElementById('e-unit');
+  if(unitErrEl){
+    if(upp>0&&unit>=upp){unitErrEl.textContent='الوحدة يجب أن تكون أقل من '+upp+' (وحدات الصنف)';unitErrEl.style.display='block';}
+    else{unitErrEl.textContent='';unitErrEl.style.display='none';}
+  }
+  const unitEl=document.getElementById('f-unit');
+  if(unitEl){unitEl.style.borderColor=(upp>0&&unit>=upp)?'#ef4444':'';}
+  // qty preview
+  const qp=document.getElementById('qty-preview');
+  if(qp){const tot=upp?(qty*upp+unit):0;const parts=[];if(qty)parts.push(qty+' علبة');if(unit)parts.push(unit+' وحدة');if(upp&&tot)parts.push('= '+tot+' إجمالي');if(parts.length){qp.textContent='📦 '+parts.join(' + ');qp.style.display='block';}else qp.style.display='none';}
+  // unit price preview
+  const up=document.getElementById('unit-price-preview');
+  if(up){if(price&&upp>0){up.innerHTML='💰 سعر الوحدة: <strong style="font-size:17px;">'+(price/upp).toFixed(2)+' ج.م</strong>';up.style.cssText='display:block;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;color:#16a34a;font-size:13px;font-weight:600;';}else up.style.display='none';}
+}
+function submitProductForm(){
+  const get=id=>document.getElementById(id)?.value?.trim()||'';
+  const name=get('f-name'),ing=get('f-ing'),expiry=get('f-expiry'),qtyStr=get('f-qty'),priceStr=get('f-price');
+  let valid=true;
+  const showE=(id,msg)=>{const el=document.getElementById('e-'+id);if(el){el.textContent=msg;el.style.display=msg?'block':'none';}if(msg)valid=false;};
+  const uppVal=parseInt(document.getElementById('f-upp')?.value)||0;
+  const unitVal=parseInt(document.getElementById('f-unit')?.value)||0;
+  const unitErr=uppVal>0&&unitVal>=uppVal?'الوحدة يجب أن تكون أقل من '+uppVal:'';
+  showE('name',name?'':'اسم الصنف مطلوب');showE('ing',ing?'':'المادة الفعالة مطلوبة');showE('expiry',expiry?'':'تاريخ الانتهاء مطلوب');showE('qty',qtyStr===''||isNaN(+qtyStr)||+qtyStr<0?'الكمية يجب أن تكون رقماً':'');showE('price',!priceStr||isNaN(+priceStr)||+priceStr<0?'سعر البيع مطلوب':'');showE('unit',unitErr);
+  if(!valid)return;
+  const product={id:state.editProduct?.id||genId(),name,activeIngredient:ing,barcode:get('f-barcode')||undefined,expiryDate:expiry,quantity:parseInt(get('f-qty'))||0,unitQty:parseInt(document.getElementById('f-unit')?.value)||0,unitsPerPack:parseInt(document.getElementById('f-upp')?.value)||0,sellingPrice:parseFloat(priceStr),supplier:get('f-supplier')||undefined,notes:get('f-notes')||undefined,createdAt:state.editProduct?.createdAt||new Date().toISOString()};
+  if(state.editProduct){updateProduct(product);showToast('تم تعديل الصنف ✓');setTimeout(scheduleSWNotif,500);}
+  else{addProduct(product);showToast('تمت إضافة الصنف ✓');setTimeout(scheduleSWNotif,500);}
+  state.editProduct=null;app.navigate('products');
+}
+function startEdit(id){const p=getProducts().find(x=>x.id===id);if(p){state.editProduct=p;app.navigate('edit');}}
+function startDelete(id){state.deleteConfirm=id;render();}
+function cancelDelete(){state.deleteConfirm=null;render();}
+function confirmDelete(id){deleteProduct(id);state.deleteConfirm=null;showToast('تم الحذف','err');setTimeout(scheduleSWNotif,500);render();}
+function sortProds(field){if(state.productsSort.field===field)state.productsSort.dir=state.productsSort.dir==='asc'?'desc':'asc';else{state.productsSort.field=field;state.productsSort.dir='asc';}render();}
+function setProdsFilter(f){state.productsFilter=f;render();}
+function setProdsSearch(v){state.productsSearch=v;render();}
+function setSearchMode(m){state.searchMode=m;state.searchQuery='';state.searchDone=false;render();}
+function doSearch(){state.searchDone=true;render();}
+function setAlertsFilter(f){state.alertsFilter=f;render();}
+function toggleAlertGroup(ing){if(state.alertsExpanded.has(ing))state.alertsExpanded.delete(ing);else state.alertsExpanded.add(ing);render();}
+function doExport(){exportBackup(false);showToast('تم تصدير النسخة الاحتياطية ✓');}
+function handleImport(input){const file=input.files[0];if(!file)return;importBackup(file,(prods,accs)=>{showToast(`تم استيراد ${prods} صنف ✓`);render();},err=>showToast('خطأ: '+err,'err'));input.value='';}
+function savePhone(){ls.set(K.userPhone(_currentUser()),document.getElementById('wa-phone')?.value||'');showToast('تم حفظ الرقم ✓');}
+function doWA(){const phone=ls.get(K.userPhone(_currentUser()))||'';sendWA(getProducts(),phone);}
+function enableNotif(){askNotifPerm().then(g=>{if(g)showToast('تم تفعيل الإشعارات ✓');else showToast('لم يُسمح بالإشعارات','err');render();});}
+function testNotif(){showInAppNotif(getProducts());fireNativeNotif(getProducts());showToast('تم إرسال إشعار تجريبي ✓');}
+function changePass(){
+  const oldp=document.getElementById('s-oldp')?.value||'';
+  const newp=document.getElementById('s-newp')?.value||'';
+  const conp=document.getElementById('s-conp')?.value||'';
+  const errEl=document.getElementById('s-err');
+  const showE=msg=>{if(errEl){errEl.textContent=msg;errEl.style.display=msg?'block':'none';}};
+  const accs=getAccounts();const acc=accs.find(a=>a.username.toLowerCase()===state.username.toLowerCase());
+  if(!acc||oldp!==acc.password){showE('كلمة المرور الحالية غير صحيحة');return;}
+  if(newp.length<3){showE('كلمة المرور 3 أحرف على الأقل');return;}
+  if(newp!==conp){showE('كلمتا المرور غير متطابقتان');return;}
+  saveAccounts(accs.map(a=>a.username.toLowerCase()===state.username.toLowerCase()?{...a,password:newp}:a));
+  showE('');showToast('تم تغيير كلمة المرور ✓');
+  if(document.getElementById('s-oldp'))document.getElementById('s-oldp').value='';
+  if(document.getElementById('s-newp'))document.getElementById('s-newp').value='';
+  if(document.getElementById('s-conp'))document.getElementById('s-conp').value='';
+}
+
+// ══════════════════════════════════════════════════════════
+// MAIN RENDER
+// ══════════════════════════════════════════════════════════
+function render(){
+  const root=document.getElementById('app-root');
+  if(!root)return;
+  if(!state.loggedIn){root.innerHTML=buildAuth();return;}
+  const pageMap={dashboard:buildDashboard,products:buildProducts,add:buildProductForm,edit:buildProductForm,search:buildSearch,alerts:buildAlerts,settings:buildSettings};
+  const pageBuilder=pageMap[state.view]||buildDashboard;
+  root.innerHTML=`
+<div id="app">
+  ${buildSidebar()}
+  ${state.sidebarOpen?`<div style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);" onclick="state.sidebarOpen=false;render();"></div>`:''}
+  <div class="main">
+    ${buildHeader()}
+    <div class="page fade-in">${pageBuilder()}</div>
+  </div>
+  ${buildBottomNav()}
+  <div id="notif-banner"></div>
+</div>`;
+  // Keep scanner modal in body separately (never re-create it)
+  if(!document.getElementById('scanner-modal')){
+    const sm=document.createElement('div');
+    sm.id='scanner-modal';
+    sm.className='scanner-overlay';
+    sm.style.display='none';
+    sm.innerHTML=`
+  <div style="width:min(400px,96vw);max-height:96vh;overflow-y:auto;padding:4px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <h2 style="color:#fff;font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;">${ic('barcode',20)} مسح الباركود</h2>
+      <button id="sc-close-btn" style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border:none;font-size:20px;">✕</button>
+    </div>
+    <div style="position:relative;width:100%;background:#111;border-radius:16px;overflow:hidden;">
+      <video id="scanner-video" autoplay playsinline muted webkit-playsinline x5-playsinline style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;"></video>
+      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
+        <div class="scanner-box"><div class="scanner-line"></div><div class="sc-corner sc-tl"></div><div class="sc-corner sc-tr"></div><div class="sc-corner sc-bl"></div><div class="sc-corner sc-br"></div></div>
+      </div>
+    </div>
+    <div id="scanner-status" style="margin-top:12px;text-align:center;color:#94a3b8;font-size:13px;min-height:36px;line-height:1.6;padding:0 8px;"></div>
+    <div style="margin-top:12px;">
+      <p style="color:#64748b;font-size:12px;text-align:center;margin-bottom:8px;">أو أدخل الباركود يدوياً</p>
+      <div style="display:flex;gap:8px;">
+        <input id="manual-barcode" type="text" inputmode="numeric" dir="ltr" placeholder="اكتب الباركود هنا..." style="flex:1;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);color:#fff;font-size:16px;outline:none;font-family:inherit;"/>
+        <button id="sc-manual-btn" style="padding:12px 16px;background:#14b8a6;color:#fff;border-radius:12px;font-weight:700;font-size:14px;min-height:48px;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;">تأكيد</button>
+      </div>
+    </div>
+  </div>`;
+    document.body.appendChild(sm);
+  }
+  // Logout confirm modal
+  if(!document.getElementById('logout-modal')){
+    const lm=document.createElement('div');
+    lm.id='logout-modal';
+    lm.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;';
+    lm.innerHTML=`
+      <div style="background:#fff;border-radius:22px;padding:24px;width:100%;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+        <div style="width:56px;height:56px;border-radius:18px;background:#fff5f5;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#dc2626;">${ic('logout',28)}</div>
+        <div style="font-weight:800;font-size:17px;color:#0f172a;margin-bottom:6px;">تسجيل الخروج</div>
+        <div style="font-size:13px;color:#64748b;margin-bottom:20px;">هل تريد الخروج من حساب <strong style="color:#0f172a;">${state.username}</strong>؟</div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="hideLogoutConfirm()" style="flex:1;padding:13px;border-radius:14px;background:#f1f5f9;color:#64748b;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;border:none;">إلغاء</button>
+          <button onclick="confirmLogout()" style="flex:1;padding:13px;border-radius:14px;background:linear-gradient(135deg,#ef4444,#f43f5e);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;border:none;box-shadow:0 4px 14px rgba(239,68,68,.35);">خروج</button>
+        </div>
+      </div>`;
+    lm.addEventListener('click', e=>{ if(e.target===lm) hideLogoutConfirm(); });
+    document.body.appendChild(lm);
+    document.getElementById('sc-close-btn').onclick=closeScanner;
+    document.getElementById('sc-manual-btn').onclick=manualBarcodeConfirm;
+  }
+  // Attach live input listeners for form previews
+  if(state.view==='add'||state.view==='edit'){
+    ['f-qty','f-unit','f-upp','f-price'].forEach(id=>{const el=document.getElementById(id);if(el)el.addEventListener('input',updateFormPreviews);});
+    updateFormPreviews();
+  }
+  // Keep search input focused after render
+  if(state.view==='search'){const inp=document.getElementById('search-inp');if(inp&&document.activeElement!==inp){};}
+}
+
+// ══════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════
+// Logout confirm
+function showLogoutConfirm(){
+  const modal = document.getElementById('logout-modal');
+  if(modal) modal.style.display='flex';
+}
+function hideLogoutConfirm(){
+  const modal = document.getElementById('logout-modal');
+  if(modal) modal.style.display='none';
+}
+function confirmLogout(){
+  hideLogoutConfirm();
+  app.logout();
+}
+
+state._authTab='login';
+const session=getSession();
+if(session?.username){state.loggedIn=true;state.username=session.username;startTimers();askNotifPerm();}
+render();
+
+// ══════════════════════════════════════════════════════════
+// BACKGROUND NOTIFICATIONS — via scheduled localStorage polling
+// ══════════════════════════════════════════════════════════
+
+// Write a SW file inline into the page as a <script id="sw-script"> 
+// then register it via URL using a same-origin workaround via data URI won't work
+// so we use: write SW code to a same-origin JS file dynamically isn't possible
+// REAL solution: embed SW in a <script type="text/js-sw"> and register via
+// navigator.serviceWorker.register using a same-origin script that reads from localStorage
+
+// Since we are a single HTML file, we use the best available approach:
+// 1. On open: schedule native Notification checks via setInterval (works while browser open)  
+// 2. Store "next check time" in localStorage so we can fire on re-open if overdue
+// 3. Use Page Visibility API to re-check when user returns to page/app
+
+let _bgNotifInterval = null;
+let _bgNotifTimeout = null;
+const BG_CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
+const BG_STORAGE_KEY = 'pn_last_notif_check';
+
+function scheduleSWNotif(){
+  if(!state.loggedIn) return;
+  // Clear existing
+  if(_bgNotifInterval) clearInterval(_bgNotifInterval);
+  if(_bgNotifTimeout) clearTimeout(_bgNotifTimeout);
+
+  // Check if we missed a scheduled check (e.g. app was closed and reopened)
+  const lastCheck = parseInt(localStorage.getItem(BG_STORAGE_KEY + '_' + _currentUser()) || '0');
+  const now = Date.now();
+  const overdue = now - lastCheck > BG_CHECK_INTERVAL;
+
+  // Fire immediately if overdue or first time
+  if(overdue || !lastCheck){
+    _bgNotifTimeout = setTimeout(() => _fireBgNotif(), 3000);
+  }
+
+  // Then repeat every hour
+  _bgNotifInterval = setInterval(() => _fireBgNotif(), BG_CHECK_INTERVAL);
+}
+
+function cancelSWNotif(){
+  if(_bgNotifInterval){ clearInterval(_bgNotifInterval); _bgNotifInterval = null; }
+  if(_bgNotifTimeout){ clearTimeout(_bgNotifTimeout); _bgNotifTimeout = null; }
+}
+
+function _fireBgNotif(){
+  if(!state.loggedIn) return;
+  if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const products = getProducts();
+  if(!products.length) return;
+
+  const now = new Date(); now.setHours(0,0,0,0);
+  const urgent = products.filter(p => {
+    const exp = new Date(p.expiryDate); exp.setHours(0,0,0,0);
+    return Math.round((exp - now) / 86400000) <= 90;
+  }).sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate)).slice(0, 5);
+
+  if(!urgent.length) return;
+
+  // Save last check time
+  localStorage.setItem(BG_STORAGE_KEY + '_' + _currentUser(), Date.now().toString());
+
+  const lines = urgent.map(p => {
+    const d = Math.round((new Date(p.expiryDate) - new Date()) / 86400000);
+    return p.name + ': ' + (d < 0 ? 'منتهي' : d + ' يوم');
+  });
+  const expCount = urgent.filter(p => Math.round((new Date(p.expiryDate)-new Date())/86400000) < 0).length;
+  const critCount = urgent.filter(p => { const d=Math.round((new Date(p.expiryDate)-new Date())/86400000); return d>=0&&d<=30; }).length;
+
+  try {
+    new Notification('⚠️ PharmaNear — ' + _currentUser(), {
+      body: lines.join('\n'),
+      tag: 'pn-bg-' + _currentUser(),
+      renotify: true,
+      requireInteraction: false,
+    });
+  } catch(e) { console.warn('Notif failed:', e); }
+}
+
+// Re-check when user comes back to the page/app (Page Visibility API)
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && state.loggedIn){
+    const lastCheck = parseInt(localStorage.getItem(BG_STORAGE_KEY + '_' + _currentUser()) || '0');
+    if(Date.now() - lastCheck > BG_CHECK_INTERVAL){
+      setTimeout(_fireBgNotif, 1000);
+    }
+  }
+});
+
+
+</script>
+</body>
+</html>

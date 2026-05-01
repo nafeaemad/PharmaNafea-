@@ -1039,11 +1039,17 @@ async function startScannerCamera(){
 function onBarcodeScanned(code){
   closeScanner();
   if(_scannerSearchMode){
-    state.searchMode='barcode';state.searchQuery=code;state.searchDone=false;
+    state.searchMode='barcode';
+    state.searchQuery=code;
+    state.searchDone=true;
     render();
-    setTimeout(()=>{const inp=document.getElementById('search-inp');if(inp)inp.value=code;doSearch();},50);
   }else{
-    const inp=document.getElementById(_scannerTargetId);if(inp){inp.value=code;inp.dispatchEvent(new Event('input'));}
+    const inp=document.getElementById(_scannerTargetId);
+    if(inp){
+      inp.value=code;
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    render();
   }
 }
 function manualBarcodeConfirm(){
@@ -1350,39 +1356,6 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-  // This is the service worker with the combined offline experience (Offline page + Offline copy of pages)
-
-const CACHE = "pwabuilder-offline-page";
-
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
-
-// TODO: replace the following with the correct offline fallback page i.e.: const offlineFallbackPage = "offline.html";
-const offlineFallbackPage = "ToDo-replace-this-name.html";
-
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener('install', async (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.add(offlineFallbackPage))
-  );
-});
-
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
-
-workbox.routing.registerRoute(
-  new RegExp('/*'),
-  new workbox.strategies.StaleWhileRevalidate({
-    cacheName: CACHE
-  })
-);
-
 // This is the service worker with the combined offline experience (Offline page + Offline copy of pages)
 
 const CACHE = "pwabuilder-offline-page";
@@ -1437,6 +1410,7 @@ self.addEventListener('fetch', (event) => {
     })());
   }
 });
+
 
 </script>
 </body>

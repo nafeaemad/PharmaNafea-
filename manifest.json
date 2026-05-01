@@ -1,0 +1,11 @@
+{
+  "background_color": "#ffffff",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "nafeaemad.github",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "nafeaemad.github",
+  "start_url": "/nafea",
+  "theme_color": "#0f172a"
+}

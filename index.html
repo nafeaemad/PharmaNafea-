@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#0f172a"/>
+<meta http-equiv="Permissions-Policy" content="camera=*"/>
 <title>PharmaNear Nafea</title>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <style>
@@ -60,7 +61,7 @@ img{max-width:100%;}
 
 /* ── Card ── */
 .card{background:#fff;border-radius:20px;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.05);overflow:hidden;}
-.card-scroll{overflow:hidden;}
+.card-scroll{overflow:visible;}
 
 /* ── Form inputs ── */
 .inp{width:100%;padding:13px 16px;border-radius:14px;border:1.5px solid #e2e8f0;background:#f8fafc;color:#1e293b;font-size:16px;font-weight:500;outline:none;text-align:right;transition:border-color .2s,background .2s;font-family:inherit;}
@@ -105,10 +106,10 @@ img{max-width:100%;}
 .sc-br{bottom:-3px;right:-3px;border-width:0 4px 4px 0;border-radius:0 0 8px 0;}
 
 /* ── Table ── */
-.tbl-wrap{overflow-x:scroll;-webkit-overflow-scrolling:touch;position:relative;border-radius:0 0 20px 20px;scrollbar-width:thin;scrollbar-color:#14b8a6 #f1f5f9;}
-.tbl-wrap::-webkit-scrollbar{height:8px;display:block;}
-.tbl-wrap::-webkit-scrollbar-track{background:#f1f5f9;border-radius:99px;}
-.tbl-wrap::-webkit-scrollbar-thumb{background:#14b8a6;border-radius:99px;border:2px solid #f1f5f9;}
+.tbl-wrap{overflow-x:scroll;-webkit-overflow-scrolling:touch;position:relative;border-radius:0 0 20px 20px;}
+.tbl-wrap::-webkit-scrollbar{height:6px;}
+.tbl-wrap::-webkit-scrollbar-track{background:#f1f5f9;}
+.tbl-wrap::-webkit-scrollbar-thumb{background:#14b8a6;border-radius:99px;}
 .tbl-wrap table{min-width:680px;width:100%;border-collapse:collapse;table-layout:fixed;}
 .tbl-wrap th{text-align:right;padding:10px 12px;color:#64748b;font-size:12px;font-weight:700;background:#f8fafc;border-bottom:1px solid #f1f5f9;white-space:nowrap;overflow:hidden;}
 .tbl-wrap td{padding:10px 12px;border-bottom:1px solid #f8fafc;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -121,7 +122,13 @@ img{max-width:100%;}
   .tbl-wrap tr:hover td:first-child{background:#f8fafc;}
 }
 
-/* ── Filters ── */
+/* ── html5-qrcode overrides ── */
+#h5q-region{width:100%!important;border:none!important;padding:0!important;}
+#h5q-region video{width:100%!important;border-radius:0!important;object-fit:cover!important;}
+#h5q-region img{display:none!important;}
+#h5q-region__scan_region{border:none!important;background:transparent!important;}
+#h5q-region__dashboard{display:none!important;}
+#h5q-region__status_span{display:none!important;}
 .filter-btn{padding:8px 14px;border-radius:12px;font-size:12px;font-weight:700;min-height:40px;cursor:pointer;transition:all .15s;border:1.5px solid #e2e8f0;background:#fff;color:#64748b;font-family:inherit;}
 .filter-btn.active{background:#0f172a;color:#fff;border-color:#0f172a;}
 
@@ -207,13 +214,7 @@ function icFill(name,size){size=size||20;return`<svg width="${size}" height="${s
 // ══════════════════════════════════════════════════════════
 // STORAGE
 // ══════════════════════════════════════════════════════════
-const K={
-  accounts:'pn_v5_accounts',
-  session:'pn_v5_session',
-  userProducts:u=>'pn_v5_products_'+u.toLowerCase(),
-  userBackup:u=>'pn_v5_backup_'+u.toLowerCase(),
-  userPhone:u=>'pn_v5_phone_'+u.toLowerCase(),
-};
+const K={products:'pn_v5_products',accounts:'pn_v5_accounts',session:'pn_v5_session',backup:'pn_v5_backup',phone:'pn_v5_phone'};
 const ls={get:k=>{try{return JSON.parse(localStorage.getItem(k)||'null');}catch{return null;}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v)),del:k=>localStorage.removeItem(k)};
 
 function getAccounts(){return ls.get(K.accounts)||[];}
@@ -221,9 +222,8 @@ function saveAccounts(a){ls.set(K.accounts,a);}
 function getSession(){return ls.get(K.session);}
 function saveSession(s){ls.set(K.session,s);}
 function clearSession(){ls.del(K.session);}
-function _currentUser(){return state?.username||'';}
-function getProducts(){return ls.get(K.userProducts(_currentUser()))||[];}
-function saveProducts(p){ls.set(K.userProducts(_currentUser()),p);}
+function getProducts(){return ls.get(K.products)||[];}
+function saveProducts(p){ls.set(K.products,p);}
 function addProduct(p){saveProducts([...getProducts(),p]);}
 function updateProduct(u){saveProducts(getProducts().map(p=>p.id===u.id?u:p));}
 function deleteProduct(id){saveProducts(getProducts().filter(p=>p.id!==id));}
@@ -271,10 +271,9 @@ function triggerDownload(data,filename){
 function exportBackup(auto){
   const prods=getProducts();const now=new Date();
   const stamp=now.toISOString().replace(/[:.]/g,'-').slice(0,19);
-  const uname=_currentUser();
-  triggerDownload({appName:'PharmaNear Nafea',version:5,exportedAt:now.toISOString(),autoBackup:!!auto,username:uname,accounts:getAccounts(),products:prods},
-    `backup-pharmanear-${uname}-${auto?'auto':'manual'}-${stamp}.json`);
-  ls.set(K.userBackup(uname),now.toISOString());
+  triggerDownload({appName:'PharmaNear Nafea',version:5,exportedAt:now.toISOString(),autoBackup:!!auto,accounts:getAccounts(),products:prods},
+    `backup-pharmanear-${auto?'auto':'manual'}-${stamp}.json`);
+  ls.set(K.backup,now.toISOString());
 }
 function importBackup(file,onSuccess,onError){
   const reader=new FileReader();
@@ -392,11 +391,10 @@ const app={
   login(username){
     state.loggedIn=true;state.username=username;
     startTimers();
-    askNotifPerm().then(()=>setTimeout(scheduleSWNotif,1000));
+    askNotifPerm();
     render();
   },
   logout(){
-    cancelSWNotif();
     clearSession();stopTimers();
     state.loggedIn=false;state.username='';state.view='dashboard';
     render();
@@ -533,7 +531,6 @@ function buildHeader(){
   <div style="display:flex;align-items:center;gap:8px;">
     ${alertBell}
     <span style="color:#94a3b8;font-size:12px;font-weight:600;">${prods.length} صنف</span>
-    <button onclick="showLogoutConfirm()" style="width:36px;height:36px;border-radius:11px;background:#fff5f5;border:1.5px solid #fecaca;display:flex;align-items:center;justify-content:center;color:#dc2626;cursor:pointer;flex-shrink:0;" title="تسجيل الخروج">${ic('logout',17)}</button>
   </div>
 </header>`;
 }
@@ -653,7 +650,7 @@ function buildProductForm(){
       <div><label class="lbl">عدد الوحدات في الصنف</label><input id="f-upp" class="inp" type="number" min="0" placeholder="مثال: 30" value="${v('unitsPerPack',0)||''}"/><p style="font-size:11px;color:#94a3b8;margin-top:4px;">يُستخدم لحساب سعر الوحدة والإجمالي</p></div>
       <div class="grid-2">
         <div><label class="lbl">علب كاملة <span style="color:#ef4444;">*</span></label><input id="f-qty" class="inp" type="number" min="0" placeholder="0" value="${v('quantity',0)||''}"/><div id="e-qty" class="err-msg" style="display:none;"></div></div>
-        <div><label class="lbl">وحدات إضافية</label><input id="f-unit" class="inp" type="number" min="0" placeholder="0" value="${v('unitQty',0)||''}"/><div id="e-unit" class="err-msg" style="display:none;"></div></div>
+        <div><label class="lbl">وحدات إضافية</label><input id="f-unit" class="inp" type="number" min="0" placeholder="0" value="${v('unitQty',0)||''}"/></div>
       </div>
       <div id="qty-preview" style="display:none;" class="info-box info-teal"></div>
     </div>
@@ -709,14 +706,22 @@ function buildProducts(){
   ];
   const filterBtns=fOpts.map(o=>`<button class="filter-btn${state.productsFilter===o.v?' active':''}" onclick="setProdsFilter('${o.v}')">${o.l} <span style="opacity:.7;font-size:11px;">${o.c}</span></button>`).join('');
   const sArrow=f=>state.productsSort.field===f?(state.productsSort.dir==='asc'?'↑':'↓'):'';
-  const cards=products.map((p,idx)=>{
+  const rows=products.map((p,idx)=>{
     const days=getDays(p.expiryDate);const st=getStatus(days);
     const uPrice=(p.sellingPrice&&p.unitsPerPack&&p.unitsPerPack>0)?(p.sellingPrice/p.unitsPerPack).toFixed(2):null;
-    const qtyStr=p.unitsPerPack?`${p.quantity||0} علبة + ${p.unitQty||0} قطعة`:`${p.quantity||0} علبة`;
+    const qtyStr=p.unitsPerPack?`${p.quantity||0}+${p.unitQty||0}`:`${p.quantity||0}`;
     const delBtn=state.deleteConfirm===p.id
-      ?`<div style="display:flex;gap:8px;margin-top:10px;"><button onclick="confirmDelete('${p.id}')" style="flex:1;font-size:12px;padding:9px;background:#ef4444;color:#fff;border-radius:10px;font-weight:700;font-family:inherit;cursor:pointer;border:none;">تأكيد الحذف</button><button onclick="cancelDelete()" style="flex:1;font-size:12px;padding:9px;background:#f1f5f9;color:#64748b;border-radius:10px;font-weight:700;font-family:inherit;cursor:pointer;border:none;">إلغاء</button></div>`
-      :`<div style="display:flex;gap:8px;margin-top:10px;"><button onclick="startEdit('${p.id}')" style="flex:1;padding:9px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;color:#0d9488;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">${ic('pencil',13)} تعديل</button><button onclick="startDelete('${p.id}')" style="flex:1;padding:9px;border-radius:10px;background:#fff5f5;border:1px solid #fecaca;color:#dc2626;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;">${ic('trash',13)} حذف</button></div>`;
-    return`<div class="card" style="padding:14px;border-right:4px solid ${st.color};"><div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px;"><div style="flex:1;min-width:0;"><div style="font-weight:800;color:#0f172a;font-size:14px;line-height:1.4;">${p.name}</div><div style="font-size:12px;color:#64748b;margin-top:2px;">${p.activeIngredient||''}</div>${p.barcode?`<div style="font-size:11px;color:#94a3b8;font-family:monospace;margin-top:2px;">${p.barcode}</div>`:''}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;"><span class="badge ${st.cls}">${st.label}</span><span style="font-size:11px;color:#94a3b8;">#${idx+1}</span></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">📅 تاريخ الانتهاء</div><div style="font-size:12px;font-weight:700;color:#334155;">${fmtDate(p.expiryDate)}</div><div style="font-size:12px;font-weight:800;color:${st.color};">${days<0?'منتهي':days+' يوم'}</div></div><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">📦 الكمية</div><div style="font-size:12px;font-weight:700;color:#334155;">${qtyStr}</div></div><div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">💰 سعر البيع</div><div style="font-size:12px;font-weight:700;color:#334155;">${fmtCur(p.sellingPrice)}</div>${uPrice?`<div style="font-size:11px;color:#16a34a;">${uPrice} ج.م / قطعة</div>`:''}</div>${p.supplier?`<div style="background:#f8fafc;border-radius:10px;padding:8px 10px;"><div style="font-size:10px;color:#94a3b8;font-weight:700;margin-bottom:3px;">🚚 المورد</div><div style="font-size:12px;font-weight:700;color:#334155;">${p.supplier}</div></div>`:'<div></div>'}</div>${delBtn}</div>`;}).join('');
+      ?`<div style="display:flex;gap:6px;"><button onclick="confirmDelete('${p.id}')" style="font-size:11px;padding:6px 10px;background:#ef4444;color:#fff;border-radius:8px;font-weight:700;min-height:32px;font-family:inherit;cursor:pointer;">تأكيد</button><button onclick="cancelDelete()" style="font-size:11px;padding:6px 10px;background:#f1f5f9;color:#64748b;border-radius:8px;font-weight:700;min-height:32px;font-family:inherit;cursor:pointer;">إلغاء</button></div>`
+      :`<div style="display:flex;gap:6px;"><button onclick="startEdit('${p.id}')" style="width:32px;height:32px;border-radius:10px;background:#f0fdfa;border:1px solid #99f6e4;display:flex;align-items:center;justify-content:center;color:#0d9488;cursor:pointer;">${ic('pencil',15)}</button><button onclick="startDelete('${p.id}')" style="width:32px;height:32px;border-radius:10px;background:#fff5f5;border:1px solid #fecaca;display:flex;align-items:center;justify-content:center;color:#dc2626;cursor:pointer;">${ic('trash',15)}</button></div>`;
+    return`<tr>
+<td style="color:#94a3b8;font-size:11px;padding:11px 12px;">${idx+1}</td>
+<td style="padding:11px 12px;"><div style="font-weight:700;color:#0f172a;font-size:13px;">${p.name}</div>${p.barcode?`<div style="font-size:11px;color:#94a3b8;font-family:monospace;">${p.barcode}</div>`:''}<div style="font-size:11px;color:#94a3b8;margin-top:1px;">${p.activeIngredient||''}</div></td>
+<td style="padding:11px 12px;"><div style="font-size:12px;color:#334155;font-weight:600;">${fmtDate(p.expiryDate)}</div><div style="font-size:12px;font-weight:700;color:${st.color};">${days<0?'منتهي':days+' يوم'}</div></td>
+<td style="padding:11px 12px;text-align:center;font-weight:700;color:#334155;font-size:12px;">${qtyStr}</td>
+<td style="padding:11px 12px;text-align:center;"><div style="font-weight:700;color:#334155;font-size:12px;">${fmtCur(p.sellingPrice)}</div>${uPrice?`<div style="font-size:11px;color:#16a34a;">${uPrice} ج.م</div>`:''}</td>
+<td style="padding:11px 12px;text-align:center;"><span class="badge ${st.cls}">${st.label}</span></td>
+<td style="padding:11px 12px;text-align:center;">${delBtn}</td>
+</tr>`;}).join('');
   return`
 <div style="display:flex;flex-direction:column;gap:14px;">
   <div style="display:flex;align-items:center;justify-content:space-between;">
@@ -726,9 +731,27 @@ function buildProducts(){
   <div style="position:relative;"><span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#94a3b8;">${ic('search',16)}</span><input class="inp" style="padding-right:44px;" placeholder="بحث باسم أو باركود أو مادة فعالة..." value="${state.productsSearch}" oninput="setProdsSearch(this.value)"/></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;">${filterBtns}</div>
   ${products.length===0?`<div class="card empty-state"><div style="color:#94a3b8;">${ic('alert',36)}</div><div style="color:#94a3b8;font-weight:600;margin-top:10px;">لا توجد نتائج</div></div>`:`
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <div style="font-size:12px;color:#64748b;text-align:right;padding:0 4px;">إجمالي: <strong style="color:#334155;">${products.length}</strong> صنف</div>
-    ${cards}
+  <div class="card card-scroll" style="overflow:visible;">
+    <div style="padding:8px 14px;background:#f0fdfa;border-bottom:1px solid #ccfbf1;border-radius:20px 20px 0 0;font-size:11px;color:#0d9488;display:flex;align-items:center;gap:6px;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 8l4 4-4 4"/><path d="M3 12h18"/></svg>
+      اسحب الجدول يساراً لرؤية باقي العواميد
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <colgroup><col style="width:36px"/><col style="width:160px"/><col style="width:110px"/><col style="width:80px"/><col style="width:90px"/><col style="width:80px"/><col style="width:90px"/></colgroup>
+        <thead><tr>
+          <th>#</th>
+          <th onclick="sortProds('name')" style="cursor:pointer;">اسم الصنف ${sArrow('name')}</th>
+          <th onclick="sortProds('expiryDate')" style="cursor:pointer;">الانتهاء ${sArrow('expiryDate')}</th>
+          <th style="text-align:center;">الكمية</th>
+          <th style="text-align:center;">السعر</th>
+          <th style="text-align:center;">الحالة</th>
+          <th style="text-align:center;">إجراءات</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="padding:8px 14px;background:#f8fafc;border-top:1px solid #f1f5f9;border-radius:0 0 20px 20px;font-size:12px;color:#64748b;text-align:right;">إجمالي: <strong style="color:#334155;">${products.length}</strong> صنف</div>
   </div>`}
   <div style="height:70px;"></div>
 </div>`;
@@ -834,9 +857,9 @@ function buildAlerts(){
 
 // ─── Settings ─────────────────────────────────────────────
 function buildSettings(){
-  const lastBk=ls.get(K.userBackup(_currentUser()));
+  const lastBk=ls.get(K.backup);
   const lastBkStr=lastBk?new Date(lastBk).toLocaleString('ar-EG'):'لم يتم بعد';
-  const phone=ls.get(K.userPhone(_currentUser()))||'';
+  const phone=ls.get(K.phone)||'';
   const notifPerm=typeof Notification!=='undefined'?Notification.permission:'unsupported';
   return`
 <div style="display:flex;flex-direction:column;gap:14px;">
@@ -905,151 +928,177 @@ function buildSettings(){
 }
 
 // ─── Barcode Scanner ──────────────────────────────────────
-let _scannerTargetId=null,_scannerSearchMode=false,_stream=null,_bdetLoop=null,_scanActive=false;
+let _scannerTargetId=null,_scannerSearchMode=false,_stream=null,_bdetLoop=null,_scanActive=false,_zxReader=null;
 
 function openScanner(targetInputId,isSearch){
   _scannerTargetId=targetInputId;
   _scannerSearchMode=!!isSearch;
-  const modal=document.getElementById('scanner-modal');
-  if(modal)modal.style.display='flex';
-  startScannerCamera();
+  document.getElementById('scanner-modal').style.display='flex';
+  // Small delay so modal is visible before camera starts
+  setTimeout(startScannerCamera,80);
 }
 
 function closeScanner(){
   _scanActive=false;
   if(_bdetLoop){cancelAnimationFrame(_bdetLoop);_bdetLoop=null;}
-  if(_stream){_stream.getTracks().forEach(t=>t.stop());_stream=null;}
-  const modal=document.getElementById('scanner-modal');
-  if(modal)modal.style.display='none';
+  if(_zxReader){try{_zxReader.reset();}catch(e){}_zxReader=null;}
+  if(_stream){_stream.getTracks().forEach(t=>{try{t.stop();}catch(e){}});_stream=null;}
   const vid=document.getElementById('scanner-video');
-  if(vid){vid.srcObject=null;}
+  if(vid){try{vid.pause();}catch(e){}vid.srcObject=null;}
+  document.getElementById('scanner-modal').style.display='none';
+}
+
+function decodeWithZXingFromImg(img,objUrl,statusEl){
+  if(!window.ZXing){
+    if(objUrl)URL.revokeObjectURL(objUrl);
+    if(statusEl)statusEl.innerHTML='<span style="color:#ef4444;">⚠️ لم يُعثر على باركود</span>';
+    const inp=document.getElementById('sc-capture-input');if(inp)inp.value='';
+    return;
+  }
+  const cvs=document.createElement('canvas');
+  cvs.width=img.naturalWidth; cvs.height=img.naturalHeight;
+  cvs.getContext('2d').drawImage(img,0,0);
+  const hints=new Map();
+  hints.set(ZXing.DecodeHintType.TRY_HARDER,true);
+  hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+    ZXing.BarcodeFormat.EAN_13,ZXing.BarcodeFormat.EAN_8,
+    ZXing.BarcodeFormat.CODE_128,ZXing.BarcodeFormat.CODE_39,
+    ZXing.BarcodeFormat.CODE_93,ZXing.BarcodeFormat.UPC_A,
+    ZXing.BarcodeFormat.UPC_E,ZXing.BarcodeFormat.QR_CODE,
+    ZXing.BarcodeFormat.DATA_MATRIX,ZXing.BarcodeFormat.PDF_417,
+    ZXing.BarcodeFormat.ITF,ZXing.BarcodeFormat.CODABAR,
+  ]);
+  try{
+    new ZXing.BrowserMultiFormatReader(hints).decodeFromCanvas(cvs).then(r=>{
+      if(objUrl)URL.revokeObjectURL(objUrl);
+      if(navigator.vibrate)navigator.vibrate([60,30,60]);
+      onBarcodeScanned(r.getText());
+    }).catch(()=>{
+      if(objUrl)URL.revokeObjectURL(objUrl);
+      if(statusEl)statusEl.innerHTML='<span style="color:#ef4444;">⚠️ لم يُعثر على باركود — قرّب الكاميرا وصوّر مجدداً</span>';
+      const inp=document.getElementById('sc-capture-input');if(inp)inp.value='';
+    });
+  }catch(e){
+    if(objUrl)URL.revokeObjectURL(objUrl);
+    if(statusEl)statusEl.innerHTML='<span style="color:#ef4444;">⚠️ خطأ في القراءة</span>';
+    const inp=document.getElementById('sc-capture-input');if(inp)inp.value='';
+  }
 }
 
 async function startScannerCamera(){
-  const vid=document.getElementById('scanner-video');
   const status=document.getElementById('scanner-status');
-  if(!vid||!status)return;
+  const liveWrap=document.getElementById('sc-live-wrap');
+  const captureWrap=document.getElementById('sc-capture-wrap');
   _scanActive=true;
-  status.innerHTML='<span style="color:#94a3b8;">جاري فتح الكاميرا...</span>';
 
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    status.innerHTML='<span style="color:#ef4444;">⚠️ الكاميرا غير مدعومة في هذا المتصفح</span>';return;
-  }
-
-  // Try cameras in order
-  const tries=[
-    {video:{facingMode:{exact:'environment'}}},
-    {video:{facingMode:'environment'}},
-    {video:{facingMode:'user'}},
-    {video:true}
-  ];
-  let stream=null;
-  for(const c of tries){
-    try{stream=await navigator.mediaDevices.getUserMedia(c);break;}
-    catch(e){
-      if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
-        status.innerHTML='<span style="color:#ef4444;">⚠️ لم يُسمح بالكاميرا — افتح الإعدادات وأعطِ إذن الكاميرا للمتصفح</span>';
-        return;
+  // ── Step 1: Always try live getUserMedia first ──
+  // Works in: Android Chrome, APK WebView (if app grants permission), https sites
+  if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    if(status)status.innerHTML='<span style="color:#94a3b8;">⏳ جاري فتح الكاميرا...</span>';
+    let stream=null;
+    // Try back camera first, then any camera
+    const attempts=[
+      {video:{facingMode:{exact:'environment'},width:{ideal:1280},height:{ideal:720}}},
+      {video:{facingMode:'environment'}},
+      {video:{width:{ideal:1280},height:{ideal:720}}},
+      {video:true},
+    ];
+    for(const c of attempts){
+      try{stream=await navigator.mediaDevices.getUserMedia(c);break;}
+      catch(e){
+        if(e.name==='NotAllowedError'||e.name==='PermissionDeniedError'){
+          // User explicitly denied - show capture fallback
+          if(liveWrap)liveWrap.style.display='none';
+          if(captureWrap)captureWrap.style.display='block';
+          if(status)status.innerHTML='<span style="color:#f59e0b;">⚠️ لم يُسمح بالكاميرا — صوّر الباركود بالزر أو أدخله يدوياً</span>';
+          return;
+        }
+        // NotFoundError, OverconstrainedError → try next constraint
       }
     }
-  }
-  if(!stream){status.innerHTML='<span style="color:#ef4444;">⚠️ تعذّر فتح أي كاميرا</span>';return;}
-  _stream=stream;
 
-  // Continuous focus if supported
-  const track=stream.getVideoTracks()[0];
-  try{
-    const caps=track.getCapabilities?.();
-    const adv={};
-    if(caps?.focusMode?.includes('continuous'))adv.focusMode='continuous';
-    if(caps?.exposureMode?.includes('continuous'))adv.exposureMode='continuous';
-    if(Object.keys(adv).length)await track.applyConstraints({advanced:[adv]});
-  }catch(e){}
+    if(stream){
+      _stream=stream;
+      // Try continuous autofocus
+      try{await stream.getVideoTracks()[0].applyConstraints({advanced:[{focusMode:'continuous'}]});}catch(e){}
 
-  // Attach stream
-  vid.srcObject=stream;
-  vid.muted=true;
-  vid.playsInline=true;
+      const vid=document.getElementById('scanner-video');
+      if(vid){
+        vid.srcObject=stream;
+        vid.muted=true;
+        vid.setAttribute('playsinline','');
+        vid.setAttribute('webkit-playsinline','');
+        await new Promise(res=>{
+          vid.onloadedmetadata=res;
+          vid.onerror=res;
+          setTimeout(res,3000);
+        });
+        try{await vid.play();}catch(e){}
 
-  try{
-    await new Promise((res)=>{
-      if(vid.readyState>=3)return res();
-      vid.onloadeddata=res;
-      setTimeout(res,4000);
-    });
-    await vid.play();
-  }catch(e){console.warn('play err',e);}
+        if(liveWrap)liveWrap.style.display='block';
+        if(captureWrap)captureWrap.style.display='block';
+        if(status)status.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px;color:#14b8a6;"><span style="width:8px;height:8px;background:#14b8a6;border-radius:50%;display:inline-block;animation:ping 1.2s infinite;flex-shrink:0;"></span>وجّه الكاميرا للباركود</span>';
 
-  status.innerHTML='<span style="display:inline-flex;align-items:center;gap:8px;color:#14b8a6;"><span class="ping" style="width:8px;height:8px;background:#14b8a6;border-radius:50%;display:inline-block;flex-shrink:0;"></span>وجّه الكاميرا نحو الباركود</span>';
-
-  // ── Strategy A: Native BarcodeDetector (Chrome Android) ──
-  if('BarcodeDetector' in window){
-    let det;
-    try{
-      const supported=await BarcodeDetector.getSupportedFormats();
-      det=new BarcodeDetector({formats:supported.length?supported:['ean_13','ean_8','code_128','qr_code','upc_a','upc_e']});
-    }catch(e){try{det=new BarcodeDetector();}catch(e2){det=null;}}
-
-    if(det){
-      const cvs=document.createElement('canvas');
-      const cx=cvs.getContext('2d');
-      let busy=false;
-      async function loop(){
-        if(!_scanActive)return;
-        if(!busy&&vid.readyState>=2&&vid.videoWidth>0){
-          busy=true;
-          cvs.width=vid.videoWidth;cvs.height=vid.videoHeight;
-          cx.drawImage(vid,0,0);
+        // ── Live decode: BarcodeDetector (Android Chrome 83+) ──
+        if('BarcodeDetector' in window){
           try{
-            const r=await det.detect(cvs);
-            if(r.length&&_scanActive){
-              if(navigator.vibrate)navigator.vibrate([60,30,60]);
-              onBarcodeScanned(r[0].rawValue);return;
-            }
+            const fmts=await BarcodeDetector.getSupportedFormats().catch(()=>
+              ['ean_13','ean_8','code_128','code_39','code_93','qr_code','upc_a','upc_e','itf','codabar','data_matrix','pdf417','aztec']);
+            const det=new BarcodeDetector({formats:fmts});
+            const cvs=document.createElement('canvas');
+            const cx=cvs.getContext('2d',{willReadFrequently:true});
+            let busy=false;
+            (function loop(){
+              if(!_scanActive)return;
+              if(!busy&&vid.readyState>=2&&vid.videoWidth>0){
+                busy=true;
+                cvs.width=vid.videoWidth;cvs.height=vid.videoHeight;
+                cx.drawImage(vid,0,0);
+                det.detect(cvs).then(r=>{
+                  if(r.length&&_scanActive){
+                    if(navigator.vibrate)navigator.vibrate([60,30,60]);
+                    onBarcodeScanned(r[0].rawValue);
+                  }else{busy=false;_bdetLoop=requestAnimationFrame(loop);}
+                }).catch(()=>{busy=false;_bdetLoop=requestAnimationFrame(loop);});
+              }else _bdetLoop=requestAnimationFrame(loop);
+            })();
+            return;
           }catch(e){}
-          busy=false;
         }
-        _bdetLoop=requestAnimationFrame(loop);
+
+        // ── Live decode: ZXing fallback ──
+        if(window.ZXing){
+          try{
+            const hints=new Map([[ZXing.DecodeHintType.TRY_HARDER,true]]);
+            _zxReader=new ZXing.BrowserMultiFormatReader(hints,200);
+            _zxReader.decodeFromVideoElement(vid,(result,err)=>{
+              if(result&&_scanActive){
+                if(navigator.vibrate)navigator.vibrate([60,30,60]);
+                onBarcodeScanned(result.getText());
+              }
+            });
+            return;
+          }catch(e){}
+        }
+        return; // camera is showing, even if no decoder
       }
-      _bdetLoop=requestAnimationFrame(loop);
-      return;
     }
   }
 
-  // ── Strategy B: ZXing (loaded via CDN) ──
-  if(window.ZXing){
-    try{
-      const hints=new Map([[window.ZXing.DecodeHintType.TRY_HARDER,true]]);
-      const reader=new window.ZXing.BrowserMultiFormatReader(hints);
-      _stream._zx=reader;
-      reader.decodeFromStream(stream,vid,(result,err)=>{
-        if(result&&_scanActive){
-          if(navigator.vibrate)navigator.vibrate([60,30,60]);
-          onBarcodeScanned(result.getText());
-        }
-      });
-    }catch(e){
-      status.innerHTML='<span style="color:#f59e0b;">📷 الكاميرا تعمل — أدخل الباركود يدوياً</span>';
-    }
-    return;
-  }
-
-  status.innerHTML='<span style="color:#f59e0b;">📷 الكاميرا تعمل — أدخل الباركود يدوياً</span>';
+  // ── Step 2: Fallback - capture photo and decode ──
+  // Works in: file://, restricted WebViews, any browser
+  if(liveWrap)liveWrap.style.display='none';
+  if(captureWrap)captureWrap.style.display='block';
+  if(status)status.innerHTML='<span style="color:#14b8a6;">📷 اضغط الزر لتصوير الباركود</span>';
 }
 function onBarcodeScanned(code){
   closeScanner();
   if(_scannerSearchMode){
-    state.searchMode='barcode';
-    state.searchQuery=code;
-    state.searchDone=true;
+    state.searchMode='barcode';state.searchQuery=code;state.searchDone=false;
     render();
+    setTimeout(()=>{const inp=document.getElementById('search-inp');if(inp)inp.value=code;doSearch();},50);
   }else{
-    const inp=document.getElementById(_scannerTargetId);
-    if(inp){
-      inp.value=code;
-      inp.dispatchEvent(new Event('input',{bubbles:true}));
-    }
-    render();
+    const inp=document.getElementById(_scannerTargetId);if(inp){inp.value=code;inp.dispatchEvent(new Event('input'));}
   }
 }
 function manualBarcodeConfirm(){
@@ -1103,40 +1152,29 @@ function updateFormPreviews(){
   const unit=parseInt(document.getElementById('f-unit')?.value)||0;
   const upp=parseInt(document.getElementById('f-upp')?.value)||0;
   const price=parseFloat(document.getElementById('f-price')?.value)||0;
-  // validate unit < upp
-  const unitErrEl=document.getElementById('e-unit');
-  if(unitErrEl){
-    if(upp>0&&unit>=upp){unitErrEl.textContent='الوحدة يجب أن تكون أقل من '+upp+' (وحدات الصنف)';unitErrEl.style.display='block';}
-    else{unitErrEl.textContent='';unitErrEl.style.display='none';}
-  }
-  const unitEl=document.getElementById('f-unit');
-  if(unitEl){unitEl.style.borderColor=(upp>0&&unit>=upp)?'#ef4444':'';}
   // qty preview
   const qp=document.getElementById('qty-preview');
-  if(qp){const tot=upp?(qty*upp+unit):0;const parts=[];if(qty)parts.push(qty+' علبة');if(unit)parts.push(unit+' وحدة');if(upp&&tot)parts.push('= '+tot+' إجمالي');if(parts.length){qp.textContent='📦 '+parts.join(' + ');qp.style.display='block';}else qp.style.display='none';}
+  if(qp){const tot=upp?(qty*upp+unit):0;const parts=[];if(qty)parts.push(`${qty} علبة`);if(unit)parts.push(`${unit} وحدة`);if(upp&&tot)parts.push(`= ${tot} إجمالي`);if(parts.length){qp.textContent='📦 '+parts.join(' + ');qp.style.display='block';}else qp.style.display='none';}
   // unit price preview
   const up=document.getElementById('unit-price-preview');
-  if(up){if(price&&upp>0){up.innerHTML='💰 سعر الوحدة: <strong style="font-size:17px;">'+(price/upp).toFixed(2)+' ج.م</strong>';up.style.cssText='display:block;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;color:#16a34a;font-size:13px;font-weight:600;';}else up.style.display='none';}
+  if(up){if(price&&upp>0){up.innerHTML=`💰 سعر الوحدة: <strong style="font-size:17px;">${(price/upp).toFixed(2)} ج.م</strong>`;up.style.cssText='display:block;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:12px 14px;color:#16a34a;font-size:13px;font-weight:600;';}else up.style.display='none';}
 }
 function submitProductForm(){
   const get=id=>document.getElementById(id)?.value?.trim()||'';
   const name=get('f-name'),ing=get('f-ing'),expiry=get('f-expiry'),qtyStr=get('f-qty'),priceStr=get('f-price');
   let valid=true;
   const showE=(id,msg)=>{const el=document.getElementById('e-'+id);if(el){el.textContent=msg;el.style.display=msg?'block':'none';}if(msg)valid=false;};
-  const uppVal=parseInt(document.getElementById('f-upp')?.value)||0;
-  const unitVal=parseInt(document.getElementById('f-unit')?.value)||0;
-  const unitErr=uppVal>0&&unitVal>=uppVal?'الوحدة يجب أن تكون أقل من '+uppVal:'';
-  showE('name',name?'':'اسم الصنف مطلوب');showE('ing',ing?'':'المادة الفعالة مطلوبة');showE('expiry',expiry?'':'تاريخ الانتهاء مطلوب');showE('qty',qtyStr===''||isNaN(+qtyStr)||+qtyStr<0?'الكمية يجب أن تكون رقماً':'');showE('price',!priceStr||isNaN(+priceStr)||+priceStr<0?'سعر البيع مطلوب':'');showE('unit',unitErr);
+  showE('name',name?'':'اسم الصنف مطلوب');showE('ing',ing?'':'المادة الفعالة مطلوبة');showE('expiry',expiry?'':'تاريخ الانتهاء مطلوب');showE('qty',qtyStr===''||isNaN(+qtyStr)||+qtyStr<0?'الكمية يجب أن تكون رقماً':'');showE('price',!priceStr||isNaN(+priceStr)||+priceStr<0?'سعر البيع مطلوب':'');
   if(!valid)return;
   const product={id:state.editProduct?.id||genId(),name,activeIngredient:ing,barcode:get('f-barcode')||undefined,expiryDate:expiry,quantity:parseInt(get('f-qty'))||0,unitQty:parseInt(document.getElementById('f-unit')?.value)||0,unitsPerPack:parseInt(document.getElementById('f-upp')?.value)||0,sellingPrice:parseFloat(priceStr),supplier:get('f-supplier')||undefined,notes:get('f-notes')||undefined,createdAt:state.editProduct?.createdAt||new Date().toISOString()};
-  if(state.editProduct){updateProduct(product);showToast('تم تعديل الصنف ✓');setTimeout(scheduleSWNotif,500);}
-  else{addProduct(product);showToast('تمت إضافة الصنف ✓');setTimeout(scheduleSWNotif,500);}
+  if(state.editProduct){updateProduct(product);showToast('تم تعديل الصنف ✓');}
+  else{addProduct(product);showToast('تمت إضافة الصنف ✓');}
   state.editProduct=null;app.navigate('products');
 }
 function startEdit(id){const p=getProducts().find(x=>x.id===id);if(p){state.editProduct=p;app.navigate('edit');}}
 function startDelete(id){state.deleteConfirm=id;render();}
 function cancelDelete(){state.deleteConfirm=null;render();}
-function confirmDelete(id){deleteProduct(id);state.deleteConfirm=null;showToast('تم الحذف','err');setTimeout(scheduleSWNotif,500);render();}
+function confirmDelete(id){deleteProduct(id);state.deleteConfirm=null;showToast('تم الحذف','err');render();}
 function sortProds(field){if(state.productsSort.field===field)state.productsSort.dir=state.productsSort.dir==='asc'?'desc':'asc';else{state.productsSort.field=field;state.productsSort.dir='asc';}render();}
 function setProdsFilter(f){state.productsFilter=f;render();}
 function setProdsSearch(v){state.productsSearch=v;render();}
@@ -1146,8 +1184,8 @@ function setAlertsFilter(f){state.alertsFilter=f;render();}
 function toggleAlertGroup(ing){if(state.alertsExpanded.has(ing))state.alertsExpanded.delete(ing);else state.alertsExpanded.add(ing);render();}
 function doExport(){exportBackup(false);showToast('تم تصدير النسخة الاحتياطية ✓');}
 function handleImport(input){const file=input.files[0];if(!file)return;importBackup(file,(prods,accs)=>{showToast(`تم استيراد ${prods} صنف ✓`);render();},err=>showToast('خطأ: '+err,'err'));input.value='';}
-function savePhone(){ls.set(K.userPhone(_currentUser()),document.getElementById('wa-phone')?.value||'');showToast('تم حفظ الرقم ✓');}
-function doWA(){const phone=ls.get(K.userPhone(_currentUser()))||'';sendWA(getProducts(),phone);}
+function savePhone(){ls.set(K.phone,document.getElementById('wa-phone')?.value||'');showToast('تم حفظ الرقم ✓');}
+function doWA(){const phone=ls.get(K.phone)||'';sendWA(getProducts(),phone);}
 function enableNotif(){askNotifPerm().then(g=>{if(g)showToast('تم تفعيل الإشعارات ✓');else showToast('لم يُسمح بالإشعارات','err');render();});}
 function testNotif(){showInAppNotif(getProducts());fireNativeNotif(getProducts());showToast('تم إرسال إشعار تجريبي ✓');}
 function changePass(){
@@ -1187,54 +1225,91 @@ function render(){
   ${buildBottomNav()}
   <div id="notif-banner"></div>
 </div>`;
-  // Keep scanner modal in body separately (never re-create it)
+  // Scanner modal - created once, never destroyed
   if(!document.getElementById('scanner-modal')){
     const sm=document.createElement('div');
     sm.id='scanner-modal';
     sm.className='scanner-overlay';
     sm.style.display='none';
     sm.innerHTML=`
-  <div style="width:min(400px,96vw);max-height:96vh;overflow-y:auto;padding:4px;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <h2 style="color:#fff;font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;">${ic('barcode',20)} مسح الباركود</h2>
-      <button id="sc-close-btn" style="width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;border:none;font-size:20px;">✕</button>
+  <div style="width:min(420px,96vw);padding:4px;">
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <h2 style="color:#fff;font-weight:800;font-size:17px;display:flex;align-items:center;gap:8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3"/><path d="M17 17h4"/><path d="M17 21v-4"/></svg>
+        مسح الباركود
+      </h2>
+      <button id="sc-close-btn" style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,.15);color:#fff;border:none;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
     </div>
-    <div style="position:relative;width:100%;background:#111;border-radius:16px;overflow:hidden;">
-      <video id="scanner-video" autoplay playsinline muted webkit-playsinline x5-playsinline style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;"></video>
+
+    <!-- Live camera view (works when served over http/https) -->
+    <div id="sc-live-wrap" style="display:none;position:relative;width:100%;background:#000;border-radius:16px;overflow:hidden;">
+      <video id="scanner-video" autoplay playsinline muted style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;"></video>
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;">
-        <div class="scanner-box"><div class="scanner-line"></div><div class="sc-corner sc-tl"></div><div class="sc-corner sc-tr"></div><div class="sc-corner sc-bl"></div><div class="sc-corner sc-br"></div></div>
+        <div style="width:220px;height:140px;border:2px solid #14b8a6;border-radius:10px;position:relative;">
+          <div style="position:absolute;top:-1px;left:-1px;width:20px;height:20px;border-top:3px solid #14b8a6;border-left:3px solid #14b8a6;border-radius:3px 0 0 0;"></div>
+          <div style="position:absolute;top:-1px;right:-1px;width:20px;height:20px;border-top:3px solid #14b8a6;border-right:3px solid #14b8a6;border-radius:0 3px 0 0;"></div>
+          <div style="position:absolute;bottom:-1px;left:-1px;width:20px;height:20px;border-bottom:3px solid #14b8a6;border-left:3px solid #14b8a6;border-radius:0 0 0 3px;"></div>
+          <div style="position:absolute;bottom:-1px;right:-1px;width:20px;height:20px;border-bottom:3px solid #14b8a6;border-right:3px solid #14b8a6;border-radius:0 0 3px 0;"></div>
+          <div id="sc-scanline" style="position:absolute;width:100%;height:2px;background:linear-gradient(90deg,transparent,#14b8a6,transparent);top:50%;animation:scanline 2s linear infinite;"></div>
+        </div>
       </div>
     </div>
-    <div id="scanner-status" style="margin-top:12px;text-align:center;color:#94a3b8;font-size:13px;min-height:36px;line-height:1.6;padding:0 8px;"></div>
-    <div style="margin-top:12px;">
+
+    <div id="scanner-status" style="margin:12px 0;text-align:center;font-size:13px;min-height:20px;line-height:1.6;"></div>
+
+    <!-- Camera capture - works from file:// on Android -->
+    <div id="sc-capture-wrap" style="display:none;margin-bottom:12px;">
+      <button onclick="document.getElementById('sc-capture-input').click()" style="width:100%;padding:18px;background:linear-gradient(135deg,#14b8a6,#06b6d4);color:#fff;border-radius:16px;font-size:16px;font-weight:800;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(20,184,166,.4);">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        افتح الكاميرا وصوّر الباركود
+      </button>
+      <input id="sc-capture-input" type="file" accept="image/*" capture="environment" style="position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;"/>
+      <p style="color:#64748b;font-size:11px;text-align:center;margin-top:8px;">صوّر الباركود وسيتم قراءته تلقائياً</p>
+    </div>
+
+    <!-- Manual entry -->
+    <div style="margin-top:4px;">
       <p style="color:#64748b;font-size:12px;text-align:center;margin-bottom:8px;">أو أدخل الباركود يدوياً</p>
       <div style="display:flex;gap:8px;">
         <input id="manual-barcode" type="text" inputmode="numeric" dir="ltr" placeholder="اكتب الباركود هنا..." style="flex:1;padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.2);color:#fff;font-size:16px;outline:none;font-family:inherit;"/>
-        <button id="sc-manual-btn" style="padding:12px 16px;background:#14b8a6;color:#fff;border-radius:12px;font-weight:700;font-size:14px;min-height:48px;border:none;cursor:pointer;font-family:inherit;white-space:nowrap;">تأكيد</button>
+        <button id="sc-manual-btn" style="padding:12px 16px;background:#14b8a6;color:#fff;border-radius:12px;font-weight:700;font-size:14px;min-height:48px;border:none;cursor:pointer;white-space:nowrap;">تأكيد</button>
       </div>
     </div>
+
   </div>`;
     document.body.appendChild(sm);
-  }
-  // Logout confirm modal
-  if(!document.getElementById('logout-modal')){
-    const lm=document.createElement('div');
-    lm.id='logout-modal';
-    lm.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:none;align-items:center;justify-content:center;padding:16px;';
-    lm.innerHTML=`
-      <div style="background:#fff;border-radius:22px;padding:24px;width:100%;max-width:320px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3);">
-        <div style="width:56px;height:56px;border-radius:18px;background:#fff5f5;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;color:#dc2626;">${ic('logout',28)}</div>
-        <div style="font-weight:800;font-size:17px;color:#0f172a;margin-bottom:6px;">تسجيل الخروج</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:20px;">هل تريد الخروج من حساب <strong style="color:#0f172a;">${state.username}</strong>؟</div>
-        <div style="display:flex;gap:10px;">
-          <button onclick="hideLogoutConfirm()" style="flex:1;padding:13px;border-radius:14px;background:#f1f5f9;color:#64748b;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;border:none;">إلغاء</button>
-          <button onclick="confirmLogout()" style="flex:1;padding:13px;border-radius:14px;background:linear-gradient(135deg,#ef4444,#f43f5e);color:#fff;font-weight:800;font-size:14px;font-family:inherit;cursor:pointer;border:none;box-shadow:0 4px 14px rgba(239,68,68,.35);">خروج</button>
-        </div>
-      </div>`;
-    lm.addEventListener('click', e=>{ if(e.target===lm) hideLogoutConfirm(); });
-    document.body.appendChild(lm);
     document.getElementById('sc-close-btn').onclick=closeScanner;
     document.getElementById('sc-manual-btn').onclick=manualBarcodeConfirm;
+    // File input handler - decode barcode from captured photo
+    document.getElementById('sc-capture-input').onchange=function(e){
+      const file=e.target.files[0];
+      if(!file)return;
+      const status=document.getElementById('scanner-status');
+      if(status)status.innerHTML='<span style="color:#94a3b8;">⏳ جاري قراءة الباركود...</span>';
+      const url=URL.createObjectURL(file);
+      const img=new Image();
+      img.onload=function(){
+        // Try BarcodeDetector first (Android Chrome)
+        if('BarcodeDetector' in window){
+          const det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','code_93','qr_code','upc_a','upc_e','itf','codabar','data_matrix','pdf417','aztec']});
+          det.detect(img).then(results=>{
+            URL.revokeObjectURL(url);
+            if(results.length){
+              if(navigator.vibrate)navigator.vibrate([60,30,60]);
+              onBarcodeScanned(results[0].rawValue);
+            } else {
+              if(status)status.innerHTML='<span style="color:#ef4444;">⚠️ لم يُعثر على باركود — حاول مرة أخرى بإضاءة أفضل</span>';
+              document.getElementById('sc-capture-input').value='';
+            }
+          }).catch(()=>decodeWithZXingFromImg(img,url,status));
+        } else {
+          decodeWithZXingFromImg(img,url,status);
+        }
+      };
+      img.onerror=function(){if(status)status.innerHTML='<span style="color:#ef4444;">⚠️ تعذّر قراءة الصورة</span>';};
+      img.src=url;
+    };
   }
   // Attach live input listeners for form previews
   if(state.view==='add'||state.view==='edit'){
@@ -1248,179 +1323,10 @@ function render(){
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
-// Logout confirm
-function showLogoutConfirm(){
-  const modal = document.getElementById('logout-modal');
-  if(modal) modal.style.display='flex';
-}
-function hideLogoutConfirm(){
-  const modal = document.getElementById('logout-modal');
-  if(modal) modal.style.display='none';
-}
-function confirmLogout(){
-  hideLogoutConfirm();
-  app.logout();
-}
-
 state._authTab='login';
 const session=getSession();
 if(session?.username){state.loggedIn=true;state.username=session.username;startTimers();askNotifPerm();}
 render();
-
-// ══════════════════════════════════════════════════════════
-// BACKGROUND NOTIFICATIONS — via scheduled localStorage polling
-// ══════════════════════════════════════════════════════════
-
-// Write a SW file inline into the page as a <script id="sw-script"> 
-// then register it via URL using a same-origin workaround via data URI won't work
-// so we use: write SW code to a same-origin JS file dynamically isn't possible
-// REAL solution: embed SW in a <script type="text/js-sw"> and register via
-// navigator.serviceWorker.register using a same-origin script that reads from localStorage
-
-// Since we are a single HTML file, we use the best available approach:
-// 1. On open: schedule native Notification checks via setInterval (works while browser open)  
-// 2. Store "next check time" in localStorage so we can fire on re-open if overdue
-// 3. Use Page Visibility API to re-check when user returns to page/app
-
-let _bgNotifInterval = null;
-let _bgNotifTimeout = null;
-const BG_CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
-const BG_STORAGE_KEY = 'pn_last_notif_check';
-
-function scheduleSWNotif(){
-  if(!state.loggedIn) return;
-  // Clear existing
-  if(_bgNotifInterval) clearInterval(_bgNotifInterval);
-  if(_bgNotifTimeout) clearTimeout(_bgNotifTimeout);
-
-  // Check if we missed a scheduled check (e.g. app was closed and reopened)
-  const lastCheck = parseInt(localStorage.getItem(BG_STORAGE_KEY + '_' + _currentUser()) || '0');
-  const now = Date.now();
-  const overdue = now - lastCheck > BG_CHECK_INTERVAL;
-
-  // Fire immediately if overdue or first time
-  if(overdue || !lastCheck){
-    _bgNotifTimeout = setTimeout(() => _fireBgNotif(), 3000);
-  }
-
-  // Then repeat every hour
-  _bgNotifInterval = setInterval(() => _fireBgNotif(), BG_CHECK_INTERVAL);
-}
-
-function cancelSWNotif(){
-  if(_bgNotifInterval){ clearInterval(_bgNotifInterval); _bgNotifInterval = null; }
-  if(_bgNotifTimeout){ clearTimeout(_bgNotifTimeout); _bgNotifTimeout = null; }
-}
-
-function _fireBgNotif(){
-  if(!state.loggedIn) return;
-  if(typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
-  const products = getProducts();
-  if(!products.length) return;
-
-  const now = new Date(); now.setHours(0,0,0,0);
-  const urgent = products.filter(p => {
-    const exp = new Date(p.expiryDate); exp.setHours(0,0,0,0);
-    return Math.round((exp - now) / 86400000) <= 90;
-  }).sort((a,b) => new Date(a.expiryDate) - new Date(b.expiryDate)).slice(0, 5);
-
-  if(!urgent.length) return;
-
-  // Save last check time
-  localStorage.setItem(BG_STORAGE_KEY + '_' + _currentUser(), Date.now().toString());
-
-  const lines = urgent.map(p => {
-    const d = Math.round((new Date(p.expiryDate) - new Date()) / 86400000);
-    return p.name + ': ' + (d < 0 ? 'منتهي' : d + ' يوم');
-  });
-  const expCount = urgent.filter(p => Math.round((new Date(p.expiryDate)-new Date())/86400000) < 0).length;
-  const critCount = urgent.filter(p => { const d=Math.round((new Date(p.expiryDate)-new Date())/86400000); return d>=0&&d<=30; }).length;
-
-  try {
-    new Notification('⚠️ PharmaNear — ' + _currentUser(), {
-      body: lines.join('\n'),
-      tag: 'pn-bg-' + _currentUser(),
-      renotify: true,
-      requireInteraction: false,
-    });
-  } catch(e) { console.warn('Notif failed:', e); }
-}
-
-// Re-check when user comes back to the page/app (Page Visibility API)
-document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible' && state.loggedIn){
-    const lastCheck = parseInt(localStorage.getItem(BG_STORAGE_KEY + '_' + _currentUser()) || '0');
-    if(Date.now() - lastCheck > BG_CHECK_INTERVAL){
-      setTimeout(_fireBgNotif, 1000);
-    }
-  }
-});
-
-// This is the service worker with the combined offline experience (Offline page + Offline copy of pages)
-
-const CACHE = "pwabuilder-offline-page";
-
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
-
-// TODO: replace the following with the correct offline fallback page i.e.: const offlineFallbackPage = "offline.html";
-const offlineFallbackPage = "ToDo-replace-this-name.html";
-
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener('install', async (event) => {
-  event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.add(offlineFallbackPage))
-  );
-});
-
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
-
-workbox.routing.registerRoute(
-  new RegExp('/*'),
-  new workbox.strategies.StaleWhileRevalidate({
-    cacheName: CACHE
-  })
-);
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const preloadResp = await event.preloadResponse;
-
-        if (preloadResp) {
-          return preloadResp;
-        }
-
-        const networkResp = await fetch(event.request);
-        return networkResp;
-      } catch (error) {
-
-        const cache = await caches.open(CACHE);
-        const cachedResp = await cache.match(offlineFallbackPage);
-        return cachedResp;
-      }
-    })());
-  }
-});
-
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('Service Worker registered!', reg))
-        .catch(err => console.error('Service Worker failed!', err));
-    });
-  }
-</script>
-
 </script>
 </body>
 </html>
